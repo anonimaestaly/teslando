@@ -1,12 +1,12 @@
 
 import os
-import csv
 import json
 import smtplib
 import getpass
 from email.message import EmailMessage
 
 import requests
+import pandas as pd
 
 
 # ------------------------------------------------------------------
@@ -49,18 +49,45 @@ def buscar_usuarios_na_api(url_base: str = URL_DA_API) -> list[dict]:
 
 
 # ====================================================================
+# 1.1 Analisar os usuários com pandas (exemplo prático - Desafio 03.1)
+# ====================================================================
+def analisar_dominios_de_email(usuarios: list[dict]) -> pd.Series:
+    """
+    Conta quantos usuários existem por domínio de e-mail (a parte
+    depois do "@"), usando pandas.
+
+    Por que isso demonstra bem o pacote:
+    - str.split("@").str[1] é uma operação VETORIZADA: o pandas
+      aplica a divisão em TODA a coluna de uma vez (usando o array
+      NumPy por trás do bloco daquela coluna), em vez de percorrer
+      usuário por usuário com um for. É justamente esse
+      processamento "em bloco, por coluna" que o BlockManager
+      viabiliza por trás dos panos.
+    - value_counts() agrupa e conta as ocorrências de cada domínio,
+      sem precisarmos escrever a lógica de contagem manualmente.
+    """
+    tabela = pd.DataFrame(usuarios)
+    dominios = tabela["email"].str.split("@").str[1]
+    return dominios.value_counts()
+
+
+# ====================================================================
 # 2. Salvar usuários em arquivo (CSV, TXT ou JSON)
 # ====================================================================
 COLUNAS = ["id", "email", "first_name", "last_name", "avatar"]
 
 
 def salvar_como_csv(usuarios: list[dict], nome_arquivo: str) -> None:
-    """Salva a lista de usuários em formato CSV (planilha)."""
-    with open(nome_arquivo, mode="w", newline="", encoding="utf-8") as arquivo:
-        escritor = csv.DictWriter(arquivo, fieldnames=COLUNAS)
-        escritor.writeheader()
-        for usuario in usuarios:
-            escritor.writerow({coluna: usuario.get(coluna, "") for coluna in COLUNAS})
+    """
+    Salva a lista de usuários em formato CSV usando pandas.
+
+    pd.DataFrame(usuarios) transforma a lista de dicionários direto
+    numa tabela (uma linha por usuário, uma coluna por chave do
+    dicionário). df.to_csv() já cuida de escrever o cabeçalho e
+    tratar acentuação, sem precisar do módulo csv manualmente.
+    """
+    tabela = pd.DataFrame(usuarios, columns=COLUNAS)
+    tabela.to_csv(nome_arquivo, index=False, encoding="utf-8")
 
 
 def salvar_como_txt(usuarios: list[dict], nome_arquivo: str) -> None:
@@ -241,6 +268,11 @@ def main() -> None:
         print("Passo 1/3: buscando usuários na API...")
         usuarios = buscar_usuarios_na_api()
         print(f"   -> {len(usuarios)} usuários encontrados.")
+
+        print("   Análise rápida com pandas (usuários por domínio de e-mail):")
+        contagem_por_dominio = analisar_dominios_de_email(usuarios)
+        for dominio, quantidade in contagem_por_dominio.items():
+            print(f"     - {dominio}: {quantidade}")
 
         print("Passo 2/3: salvando usuários em arquivo...")
         formato = perguntar_formato_arquivo()

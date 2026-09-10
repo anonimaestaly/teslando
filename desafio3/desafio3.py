@@ -1,3 +1,14 @@
+"""
+Desafio 03 - Consumo de API e Envio de Arquivos por E-mail
+=============================================================
+Fluxo do script:
+    1. Busca a lista de usuários na API (reqres.in)
+    2. Salva essa lista em um arquivo CSV
+    3. Envia o arquivo por e-mail, como anexo
+
+Cada etapa está isolada em uma função própria, e a main() é quem
+chama todas elas, na ordem certa.
+"""
 
 import os
 import json

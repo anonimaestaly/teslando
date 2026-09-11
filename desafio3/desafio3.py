@@ -33,18 +33,38 @@ PORTA_SMTP_GOOGLE = 587
 # ====================================================================
 # 1. Buscar usuários na API
 # ====================================================================
-def buscar_usuarios_na_api(url_base: str = URL_DA_API) -> list[dict]:
+def pedir_chave_da_api() -> str:
+    """
+    Pede a chave de API do reqres.in, necessária desde que a API
+    passou a exigir autenticação. Gere a sua gratuitamente em
+    https://app.reqres.in (cadastro simples, sem cartão).
+    """
+    print("\n--- A API reqres.in exige uma chave de acesso ---")
+    print("Gere a sua gratuitamente em: https://app.reqres.in")
+    return input("Cole aqui sua chave de API (x-api-key): ").strip()
+
+
+def buscar_usuarios_na_api(chave_da_api: str, url_base: str = URL_DA_API) -> list[dict]:
     """
     Busca todos os usuários da API, percorrendo as páginas até acabar.
-    Usa uma Session para reaproveitar a conexão entre as requisições.
+    Usa uma Session para reaproveitar a conexão entre as requisições,
+    enviando a chave de API no cabeçalho "x-api-key" a cada pedido.
     """
     usuarios = []
+    cabecalhos = {"x-api-key": chave_da_api}
 
     with requests.Session() as conexao:
+        conexao.headers.update(cabecalhos)  # aplica o header em todas as requisições da sessão
         pagina = 1
         while True:
             resposta = conexao.get(url_base, params={"page": pagina}, timeout=10)
-            resposta.raise_for_status()  # lança erro se a API responder com falha
+
+            if resposta.status_code == 403:
+                raise ValueError(
+                    "A API recusou o acesso (403). Verifique se a chave de API "
+                    "está correta — gere uma nova em https://app.reqres.in se precisar."
+                )
+            resposta.raise_for_status()  # lança erro se a API responder com outra falha
 
             dados = resposta.json()
             usuarios.extend(dados.get("data", []))
@@ -276,8 +296,10 @@ def enviar_arquivo_por_email(
 # ====================================================================
 def main() -> None:
     try:
+        chave_da_api = pedir_chave_da_api()
+
         print("Passo 1/3: buscando usuários na API...")
-        usuarios = buscar_usuarios_na_api()
+        usuarios = buscar_usuarios_na_api(chave_da_api)
         print(f"   -> {len(usuarios)} usuários encontrados.")
 
         print("   Análise rápida com pandas (usuários por domínio de e-mail):")

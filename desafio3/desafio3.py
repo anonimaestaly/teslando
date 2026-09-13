@@ -1,16 +1,16 @@
-"""
-Desafio 03 - Consumo de API e Envio de Arquivos por E-mail
-=============================================================================
+""" 
+Desafio 03 - Chamada de API e Envio de Arquivos por E-mail 
+======================================================================= 
 
-O que esse script faz, em resumo:
-    1. Busca a lista de usuários lá na API do reqres.in
-    2. Salva essa lista num arquivo (você escolhe: CSV, TXT ou JSON)
-    3. Manda esse arquivo por e-mail, como anexo
+Em resumo, o que este script realiza:
+1. Consulte a API do reqres.in para obter a lista de usuários.
+2.  Armazena essa lista em um arquivo (você decide: CSV, TXT ou JSON) 
+3. Envie esse arquivo por e-mail, anexado.
 
-Organização do código:
-    Cada uma dessas 3 etapas tem suas próprias funções, bem separadas.
-    A função main() no final é só a "maestra": ela chama tudo na ordem
-    certa e cuida dos erros que podem aparecer no caminho.
+Código organizado: 
+As funções de cada uma dessas 3 etapas são bem distintas, com suas atribuições separadas.
+No final, a função main() apenas atua como uma "chefe": ela chama tudo na ordem 
+certa e zela para que os erros não apareçam pelo caminho. 
 """
 
 import os
@@ -32,9 +32,8 @@ NOME_BASE_DO_ARQUIVO = "usuarios"  # a extensão (.csv, .txt, .json) é adiciona
 
 SERVIDOR_SMTP_GOOGLE = "smtp.gmail.com"
 PORTA_SMTP_GOOGLE = 587
-
-# Trava de segurança: se por algum motivo a API não informar corretamente
-# quando parar, isso evita que o script fique preso num loop pra sempre.
+# Trava de segurança: caso a API não informe corretamente por algum motivo 
+# quando parar, isso impede que o script entre em um loop infinito.
 MAXIMO_DE_PAGINAS = 50
 
 
@@ -63,9 +62,9 @@ def obter_chave_da_api() -> str:
 
 def buscar_usuarios_na_api(chave_da_api: str, url_base: str = URL_DA_API) -> list[dict]:
     """
-    Vai página por página na API, juntando todos os usuários numa lista só.
-    Usamos uma Session do requests porque ela reaproveita a conexão HTTP
-    entre as chamadas, o que deixa tudo um pouco mais rápido.
+    Vai página por página na API, juntando todos os usuários em uma única lista.
+      Usamos uma Session do requests, pois ela reutiliza a conexão HTTP entre as 
+      chamadas.Isso torna tudo um pouco mais rápido.
     """
     usuarios = []
     cabecalhos = {"x-api-key": chave_da_api}
@@ -80,8 +79,9 @@ def buscar_usuarios_na_api(chave_da_api: str, url_base: str = URL_DA_API) -> lis
             if resposta.status_code == 403:
                 # 403 aqui quase sempre é chave errada ou expirada
                 raise ValueError(
-                    "A API recusou o acesso (403). Verifique se a chave de API "
-                    "está correta — gere uma nova em https://app.reqres.in se precisar."
+
+                   "Acesso negado pela API (403).  Confirme se a chave API " 
+"está correta — gere uma nova em https://app.reqres.in se precisar."
                 )
             resposta.raise_for_status()  # qualquer outro erro HTTP, estoura aqui mesmo
 
@@ -354,8 +354,8 @@ def main() -> None:
         enviar_arquivo_por_email(arquivo, remetente, senha, destinatario, usuarios)
         log_info("E-mail enviado com sucesso!")
 
-    # Cada tipo de erro tem uma mensagem própria, pra ajudar o usuário
-    # a entender exatamente o que deu errado (e não só um traceback cru)
+   # Cada tipo de erro exibe uma mensagem específica para auxiliar o usuário 
+# a compreender precisamente o que ocorreu de errado (e não apenas um traceback bruto)
     except requests.exceptions.RequestException:
         print("\n[ERRO] Falha ao conectar com a API. Verifique sua internet e tente de novo.")
     except ValueError as erro:

@@ -1,19 +1,23 @@
 """
 Desafio 03 - Consumo de API e Envio de Arquivos por E-mail
-=============================================================
-Fluxo do script:
-    1. Busca a lista de usuários na API (reqres.in)
-    2. Salva essa lista em um arquivo (CSV, TXT ou JSON, à escolha)
-    3. Envia o arquivo por e-mail, como anexo
+=============================================================================
 
-Cada etapa está isolada em uma função própria, e a main() é quem
-chama todas elas, na ordem certa.
+O que esse script faz, em resumo:
+    1. Busca a lista de usuários lá na API do reqres.in
+    2. Salva essa lista num arquivo (você escolhe: CSV, TXT ou JSON)
+    3. Manda esse arquivo por e-mail, como anexo
+
+Organização do código:
+    Cada uma dessas 3 etapas tem suas próprias funções, bem separadas.
+    A função main() no final é só a "maestra": ela chama tudo na ordem
+    certa e cuida dos erros que podem aparecer no caminho.
 """
 
 import os
 import json
 import smtplib
 import getpass
+from html import escape
 from email.message import EmailMessage
 
 import requests
@@ -21,57 +25,80 @@ import pandas as pd
 
 
 # ------------------------------------------------------------------
-# Configurações gerais
+# Configurações gerais do script
 # ------------------------------------------------------------------
 URL_DA_API = "https://reqres.in/api/users"
-NOME_BASE_DO_ARQUIVO = "usuarios"  # sem extensão — ela é definida pelo formato escolhido
+NOME_BASE_DO_ARQUIVO = "usuarios"  # a extensão (.csv, .txt, .json) é adicionada depois
 
 SERVIDOR_SMTP_GOOGLE = "smtp.gmail.com"
 PORTA_SMTP_GOOGLE = 587
 
+# Trava de segurança: se por algum motivo a API não informar corretamente
+# quando parar, isso evita que o script fique preso num loop pra sempre.
+MAXIMO_DE_PAGINAS = 50
+
 
 # ====================================================================
-# 1. Buscar usuários na API
+# ETAPA 1 - Buscar os usuários na API
 # ====================================================================
-def pedir_chave_da_api() -> str:
+def obter_chave_da_api() -> str:
     """
-    Pede a chave de API do reqres.in, necessária desde que a API
-    passou a exigir autenticação. Gere a sua gratuitamente em
-    https://app.reqres.in (cadastro simples, sem cartão).
+    A API do reqres.in passou a exigir uma chave de acesso. Aqui a gente
+    dá um jeitinho de facilitar a vida: se a chave já estiver salva na
+    variável de ambiente REQRES_API_KEY, usamos ela direto. Senão,
+    pedimos pro usuário colar a chave na hora.
+
+    (Quem ainda não tem chave, pode gerar de graça em app.reqres.in)
     """
+    chave = os.environ.get("REQRES_API_KEY")
+    if chave:
+        return chave.strip()
+
     print("\n--- A API reqres.in exige uma chave de acesso ---")
     print("Gere a sua gratuitamente em: https://app.reqres.in")
+    print("(Dica: se definir a variável de ambiente REQRES_API_KEY,")
+    print(" não precisa colar isso toda vez que rodar o script.)")
     return input("Cole aqui sua chave de API (x-api-key): ").strip()
 
 
 def buscar_usuarios_na_api(chave_da_api: str, url_base: str = URL_DA_API) -> list[dict]:
     """
-    Busca todos os usuários da API, percorrendo as páginas até acabar.
-    Usa uma Session para reaproveitar a conexão entre as requisições,
-    enviando a chave de API no cabeçalho "x-api-key" a cada pedido.
+    Vai página por página na API, juntando todos os usuários numa lista só.
+    Usamos uma Session do requests porque ela reaproveita a conexão HTTP
+    entre as chamadas, o que deixa tudo um pouco mais rápido.
     """
     usuarios = []
     cabecalhos = {"x-api-key": chave_da_api}
 
     with requests.Session() as conexao:
-        conexao.headers.update(cabecalhos)  # aplica o header em todas as requisições da sessão
+        conexao.headers.update(cabecalhos)  # esse header vale pra toda a sessão, não precisa repetir
         pagina = 1
-        while True:
+
+        while pagina <= MAXIMO_DE_PAGINAS:
             resposta = conexao.get(url_base, params={"page": pagina}, timeout=10)
 
             if resposta.status_code == 403:
+                # 403 aqui quase sempre é chave errada ou expirada
                 raise ValueError(
                     "A API recusou o acesso (403). Verifique se a chave de API "
                     "está correta — gere uma nova em https://app.reqres.in se precisar."
                 )
-            resposta.raise_for_status()  # lança erro se a API responder com outra falha
+            resposta.raise_for_status()  # qualquer outro erro HTTP, estoura aqui mesmo
 
             dados = resposta.json()
             usuarios.extend(dados.get("data", []))
 
+            # Se já chegamos na última página, para o loop
             if pagina >= dados.get("total_pages", 1):
                 break
             pagina += 1
+        else:
+            # Só cai aqui se o while terminar por ter estourado MAXIMO_DE_PAGINAS,
+            # sem nunca ter dado o "break" — sinal de que algo não está normal
+            raise ValueError(
+                f"A busca ultrapassou o limite de {MAXIMO_DE_PAGINAS} páginas. "
+                "Algo pode estar errado com a resposta da API."
+            )
 
     if not usuarios:
         raise ValueError("A API não devolveu nenhum usuário.")
@@ -80,11 +107,23 @@ def buscar_usuarios_na_api(chave_da_api: str, url_base: str = URL_DA_API) -> lis
 
 
 def analisar_dominios_de_email(usuarios: list[dict]) -> pd.Series:
+    """
+    Só uma curiosidade rápida usando pandas: quantos usuários existem
+    por domínio de e-mail (gmail.com, yahoo.com, etc).
+    """
     tabela = pd.DataFrame(usuarios)
+
+    # Se algum usuário vier sem e-mail, melhor descartar essa linha
+    # aqui do que deixar isso bagunçar a contagem lá na frente
+    tabela = tabela.dropna(subset=["email"])
+
     dominios = tabela["email"].str.split("@").str[1]
     return dominios.value_counts()
 
 
+# ====================================================================
+# ETAPA 2 - Salvar os usuários em arquivo
+# ====================================================================
 COLUNAS = ["id", "email", "first_name", "last_name", "avatar"]
 
 
@@ -94,6 +133,8 @@ def salvar_como_csv(usuarios: list[dict], nome_arquivo: str) -> None:
 
 
 def salvar_como_txt(usuarios: list[dict], nome_arquivo: str) -> None:
+    # Aqui optei por um formato bem legível, tipo "ficha" de cada usuário,
+    # já que TXT não tem estrutura de tabela como o CSV
     with open(nome_arquivo, mode="w", encoding="utf-8") as arquivo:
         for usuario in usuarios:
             arquivo.write(f"ID: {usuario.get('id', '')}\n")
@@ -104,10 +145,14 @@ def salvar_como_txt(usuarios: list[dict], nome_arquivo: str) -> None:
 
 
 def salvar_como_json(usuarios: list[dict], nome_arquivo: str) -> None:
+    # indent=2 só pra deixar o arquivo legível se alguém for abrir manualmente
     with open(nome_arquivo, mode="w", encoding="utf-8") as arquivo:
         json.dump(usuarios, arquivo, ensure_ascii=False, indent=2)
 
 
+# Esse dicionário funciona como um "menu": cada opção sabe seu nome,
+# sua extensão de arquivo e qual função deve chamar para salvar.
+# Assim a gente evita um monte de if/elif espalhado pelo código.
 FORMATOS_DISPONIVEIS = {
     "1": {"nome": "CSV", "extensao": "csv", "funcao": salvar_como_csv},
     "2": {"nome": "TXT", "extensao": "txt", "funcao": salvar_como_txt},
@@ -132,11 +177,16 @@ def salvar_usuarios_em_arquivo(usuarios: list[dict], formato: dict, nome_base: s
         raise ValueError("Não há usuários para salvar.")
 
     nome_arquivo = f"{nome_base}.{formato['extensao']}"
-    formato["funcao"](usuarios, nome_arquivo)
+    formato["funcao"](usuarios, nome_arquivo)  # chama a função certa de acordo com o formato escolhido
     return nome_arquivo
 
 
+# ====================================================================
+# ETAPA 3 - Enviar o arquivo por e-mail
+# ====================================================================
 def email_parece_valido(endereco: str) -> bool:
+    # Validação bem simples, só pra pegar os erros de digitação mais óbvios
+    # (não é uma validação de e-mail "de verdade", mas resolve aqui)
     if "@" not in endereco:
         return False
     return "." in endereco.split("@")[-1]
@@ -150,22 +200,47 @@ def pedir_email_valido(mensagem: str) -> str:
     return endereco
 
 
-def perguntar_dados_do_email() -> tuple[str, str, str]:
+def obter_dados_do_email() -> tuple[str, str, str]:
+    """
+    Assim como fizemos com a chave da API, aqui também damos a opção de
+    usar variáveis de ambiente (EMAIL_REMETENTE e EMAIL_SENHA_APP) pra
+    evitar digitar tudo de novo a cada execução. O que não estiver
+    definido, a gente pergunta na hora mesmo.
+    """
     print("\n--- Dados para envio do e-mail ---")
-    remetente = pedir_email_valido("Seu e-mail (remetente): ")
-    senha = getpass.getpass("Senha de app do Google (não aparece ao digitar): ").strip()
+
+    remetente = os.environ.get("EMAIL_REMETENTE")
+    if not remetente:
+        remetente = pedir_email_valido("Seu e-mail (remetente): ")
+
+    senha = os.environ.get("EMAIL_SENHA_APP")
+    if not senha:
+        # getpass esconde o que está sendo digitado, então a senha não
+        # fica visível na tela nem no histórico do terminal
+        senha = getpass.getpass("Senha de app do Google (não aparece ao digitar): ").strip()
+
     destinatario = pedir_email_valido("E-mail de destino: ")
     return remetente, senha, destinatario
 
 
 def montar_corpo_html(usuarios: list[dict]) -> str:
+    """
+    Monta uma tabelinha HTML simples com os usuários, pra deixar o
+    corpo do e-mail mais apresentável do que só texto puro.
+    """
     linhas_da_tabela = ""
     for usuario in usuarios:
+        # escape() protege contra usuários com "<", ">" ou "&" no nome/e-mail,
+        # que senão bagunçariam a estrutura do HTML
+        id_usuario = escape(str(usuario.get("id", "")))
+        nome_usuario = escape(f"{usuario.get('first_name', '')} {usuario.get('last_name', '')}")
+        email_usuario = escape(str(usuario.get("email", "")))
+
         linhas_da_tabela += f"""
             <tr>
-                <td style="padding: 6px 12px; border: 1px solid #ddd;">{usuario.get('id', '')}</td>
-                <td style="padding: 6px 12px; border: 1px solid #ddd;">{usuario.get('first_name', '')} {usuario.get('last_name', '')}</td>
-                <td style="padding: 6px 12px; border: 1px solid #ddd;">{usuario.get('email', '')}</td>
+                <td style="padding: 6px 12px; border: 1px solid #ddd;">{id_usuario}</td>
+                <td style="padding: 6px 12px; border: 1px solid #ddd;">{nome_usuario}</td>
+                <td style="padding: 6px 12px; border: 1px solid #ddd;">{email_usuario}</td>
             </tr>"""
 
     return f"""
@@ -199,11 +274,13 @@ def enviar_arquivo_por_email(
     email["To"] = email_destinatario
     email["Subject"] = "Listagem de usuários - Desafio 03"
 
+    # Enviamos as duas versões: texto simples (fallback) e HTML (a "bonita")
     email.set_content("Segue em anexo a listagem de usuários obtida via API.")
     email.add_alternative(montar_corpo_html(usuarios), subtype="html")
 
-    # Cada extensão tem seu par correto de (maintype, subtype) MIME.
-    # "text/json" não é um tipo registrado — JSON deve ir como "application/json".
+    # Cada tipo de arquivo tem seu par (maintype, subtype) certinho no
+    # padrão MIME. Vale lembrar: "text/json" não existe oficialmente,
+    # o correto pra JSON é "application/json".
     extensao = os.path.splitext(caminho_do_arquivo)[1].lstrip(".")
     tipos_mime_por_extensao = {
         "csv": ("text", "csv"),
@@ -222,11 +299,13 @@ def enviar_arquivo_por_email(
 
     try:
         with smtplib.SMTP(SERVIDOR_SMTP_GOOGLE, PORTA_SMTP_GOOGLE) as servidor:
-            servidor.starttls()
+            servidor.starttls()  # criptografa a conexão antes de mandar login/senha
             servidor.login(email_remetente, senha_remetente)
             servidor.send_message(email)
 
     except smtplib.SMTPAuthenticationError:
+        # Esse é, de longe, o erro mais comum: confundir a senha normal
+        # da conta Google com a senha de app (que tem 16 letras)
         raise ValueError(
             "Login recusado pelo Gmail. Verifique se o e-mail está certo e se "
             "você usou a SENHA DE APP (16 letras), não a senha normal da conta."
@@ -237,29 +316,46 @@ def enviar_arquivo_por_email(
         raise ValueError(f"Erro ao enviar o e-mail: {erro}")
 
 
+# ====================================================================
+# Funçõezinhas de log — só pra deixar o main() mais limpo de ler
+# ====================================================================
+def log_passo(numero: str, mensagem: str) -> None:
+    print(f"Passo {numero}: {mensagem}")
+
+
+def log_info(mensagem: str) -> None:
+    print(f"   -> {mensagem}")
+
+
+# ====================================================================
+# main() - aqui é onde tudo se junta
+# ====================================================================
 def main() -> None:
     try:
-        chave_da_api = pedir_chave_da_api()
+        chave_da_api = obter_chave_da_api()
 
-        print("Passo 1/3: buscando usuários na API...")
+        log_passo("1/3", "buscando usuários na API...")
         usuarios = buscar_usuarios_na_api(chave_da_api)
-        print(f"   -> {len(usuarios)} usuários encontrados.")
+        log_info(f"{len(usuarios)} usuários encontrados.")
 
+        # Só uma análise extra, de bônus, pra mostrar o pandas em ação
         print("   Análise rápida com pandas (usuários por domínio de e-mail):")
         contagem_por_dominio = analisar_dominios_de_email(usuarios)
         for dominio, quantidade in contagem_por_dominio.items():
             print(f"     - {dominio}: {quantidade}")
 
-        print("Passo 2/3: salvando usuários em arquivo...")
+        log_passo("2/3", "salvando usuários em arquivo...")
         formato = perguntar_formato_arquivo()
         arquivo = salvar_usuarios_em_arquivo(usuarios, formato)
-        print(f"   -> Arquivo criado: {arquivo}")
+        log_info(f"Arquivo criado: {arquivo}")
 
-        print("Passo 3/3: enviando o arquivo por e-mail...")
-        remetente, senha, destinatario = perguntar_dados_do_email()
+        log_passo("3/3", "enviando o arquivo por e-mail...")
+        remetente, senha, destinatario = obter_dados_do_email()
         enviar_arquivo_por_email(arquivo, remetente, senha, destinatario, usuarios)
-        print("   -> E-mail enviado com sucesso!")
+        log_info("E-mail enviado com sucesso!")
 
+    # Cada tipo de erro tem uma mensagem própria, pra ajudar o usuário
+    # a entender exatamente o que deu errado (e não só um traceback cru)
     except requests.exceptions.RequestException:
         print("\n[ERRO] Falha ao conectar com a API. Verifique sua internet e tente de novo.")
     except ValueError as erro:

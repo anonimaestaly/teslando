@@ -149,10 +149,9 @@ def salvar_como_json(usuarios: list[dict], nome_arquivo: str) -> None:
     with open(nome_arquivo, mode="w", encoding="utf-8") as arquivo:
         json.dump(usuarios, arquivo, ensure_ascii=False, indent=2)
 
-
 # Esse dicionário funciona como um "menu": cada opção sabe seu nome,
 # sua extensão de arquivo e qual função deve chamar para salvar.
-# Assim a gente evita um monte de if/elif espalhado pelo código.
+#Assim, evitamos vários if/elif espalhados pelo código.
 FORMATOS_DISPONIVEIS = {
     "1": {"nome": "CSV", "extensao": "csv", "funcao": salvar_como_csv},
     "2": {"nome": "TXT", "extensao": "txt", "funcao": salvar_como_txt},
@@ -278,9 +277,8 @@ def enviar_arquivo_por_email(
     email.set_content("Segue em anexo a listagem de usuários obtida via API.")
     email.add_alternative(montar_corpo_html(usuarios), subtype="html")
 
-    # Cada tipo de arquivo tem seu par (maintype, subtype) certinho no
-    # padrão MIME. Vale lembrar: "text/json" não existe oficialmente,
-    # o correto pra JSON é "application/json".
+     # Só cai aqui se o while terminar por ter estourado MAXIMO_DE_PAGINAS,
+     # sem nunca ter dado o "break" — sinal de que algo não está normal
     extensao = os.path.splitext(caminho_do_arquivo)[1].lstrip(".")
     tipos_mime_por_extensao = {
         "csv": ("text", "csv"),
@@ -317,7 +315,7 @@ def enviar_arquivo_por_email(
 
 
 # ====================================================================
-# Funçõezinhas de log — só pra deixar o main() mais limpo de ler
+# Estruturas de log — apenas para tornar o main() mais legível
 # ====================================================================
 def log_passo(numero: str, mensagem: str) -> None:
     print(f"Passo {numero}: {mensagem}")
@@ -338,7 +336,7 @@ def main() -> None:
         usuarios = buscar_usuarios_na_api(chave_da_api)
         log_info(f"{len(usuarios)} usuários encontrados.")
 
-        # Só uma análise extra, de bônus, pra mostrar o pandas em ação
+     # Apenas uma análise adicional, como um bônus, para demonstrar o pandas em uso
         print("   Análise rápida com pandas (usuários por domínio de e-mail):")
         contagem_por_dominio = analisar_dominios_de_email(usuarios)
         for dominio, quantidade in contagem_por_dominio.items():

@@ -15,7 +15,12 @@ def ls():
     resposta = input("Mostrar ocultos? (s/n): ").strip().lower()
     mostrar_ocultos = resposta == "s"
 
-    itens = os.listdir()
+    try:
+        itens = os.listdir()
+    except PermissionError:
+        print(Fore.RED + "\nSem permissão para listar essa pasta.")
+        pausar()
+        return
 
     if not mostrar_ocultos:
         itens = [item for item in itens if not item.startswith(".")]
@@ -106,6 +111,9 @@ def tee():
         print("\n" + texto)
         print(Fore.GREEN + "\nProntinho, arquivo salvo!")
 
+    except FileNotFoundError:
+        print(Fore.RED + f"\nCaminho inválido, alguma pasta em '{nome}' não existe.")
+
     except IsADirectoryError:
         print(Fore.RED + f"\n'{nome}' é uma pasta, não dá pra escrever nela.")
 
@@ -129,14 +137,20 @@ def cp():
 
         print(Fore.GREEN + "\nArquivo copiado com sucesso!")
 
-    except FileNotFoundError:
-        print(Fore.RED + f"\nNão encontrei '{origem}'.")
+    except shutil.SameFileError:
+        print(Fore.RED + "\nOrigem e destino são o mesmo arquivo.")
+
+    except FileNotFoundError as erro:
+        print(Fore.RED + f"\nCaminho não encontrado: '{erro.filename}'.")
 
     except PermissionError:
         print(Fore.RED + "\nSem permissão para copiar o arquivo.")
 
     except IsADirectoryError:
-        print(Fore.RED + "\nEsse comando está configurado para copiar arquivos.")
+        print(Fore.RED + "\nEsse comando está configurado para copiar arquivos, não pastas.")
+
+    except OSError as erro:
+        print(Fore.RED + f"\nErro ao copiar: {erro}")
 
     pausar()
 
@@ -165,31 +179,36 @@ def menu():
 
         escolha = input(Fore.CYAN + "\nuser@python:~$ ")
 
-        if escolha == "1":
-            ls()
+        try:
+            if escolha == "1":
+                ls()
 
-        elif escolha == "2":
-            cat()
+            elif escolha == "2":
+                cat()
 
-        elif escolha == "3":
-            echo()
+            elif escolha == "3":
+                echo()
 
-        elif escolha == "4":
-            tee()
+            elif escolha == "4":
+                tee()
 
-        elif escolha == "5":
-            cp()
+            elif escolha == "5":
+                cp()
 
-        elif escolha == "0":
-            limpar_tela()
+            elif escolha == "0":
+                limpar_tela()
 
-            print(Fore.GREEN + "Até mais! Programa encerrado.")
+                print(Fore.GREEN + "Até mais! Programa encerrado.")
 
-            break
+                break
 
-        else:
-            print(Fore.YELLOW + "\nOpção inválida, escolha um número do menu.")
+            else:
+                print(Fore.YELLOW + "\nOpção inválida, escolha um número do menu.")
 
+                pausar()
+
+        except Exception as erro:
+            print(Fore.RED + f"\nOps, aconteceu um erro inesperado: {erro}")
             pausar()
 
 

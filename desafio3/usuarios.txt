@@ -1,0 +1,60 @@
+ID: 1
+Nome: George Bluth
+E-mail: george.bluth@reqres.in
+Avatar: https://reqres.in/img/faces/1-image.jpg
+----------------------------------------
+ID: 2
+Nome: Janet Weaver
+E-mail: janet.weaver@reqres.in
+Avatar: https://reqres.in/img/faces/2-image.jpg
+----------------------------------------
+ID: 3
+Nome: Emma Wong
+E-mail: emma.wong@reqres.in
+Avatar: https://reqres.in/img/faces/3-image.jpg
+----------------------------------------
+ID: 4
+Nome: Eve Holt
+E-mail: eve.holt@reqres.in
+Avatar: https://reqres.in/img/faces/4-image.jpg
+----------------------------------------
+ID: 5
+Nome: Charles Morris
+E-mail: charles.morris@reqres.in
+Avatar: https://reqres.in/img/faces/5-image.jpg
+----------------------------------------
+ID: 6
+Nome: Tracey Ramos
+E-mail: tracey.ramos@reqres.in
+Avatar: https://reqres.in/img/faces/6-image.jpg
+----------------------------------------
+ID: 7
+Nome: Michael Lawson
+E-mail: michael.lawson@reqres.in
+Avatar: https://reqres.in/img/faces/7-image.jpg
+----------------------------------------
+ID: 8
+Nome: Lindsay Ferguson
+E-mail: lindsay.ferguson@reqres.in
+Avatar: https://reqres.in/img/faces/8-image.jpg
+----------------------------------------
+ID: 9
+Nome: Tobias Funke
+E-mail: tobias.funke@reqres.in
+Avatar: https://reqres.in/img/faces/9-image.jpg
+----------------------------------------
+ID: 10
+Nome: Byron Fields
+E-mail: byron.fields@reqres.in
+Avatar: https://reqres.in/img/faces/10-image.jpg
+----------------------------------------
+ID: 11
+Nome: George Edwards
+E-mail: george.edwards@reqres.in
+Avatar: https://reqres.in/img/faces/11-image.jpg
+----------------------------------------
+ID: 12
+Nome: Rachel Howell
+E-mail: rachel.howell@reqres.in
+Avatar: https://reqres.in/img/faces/12-image.jpg
+----------------------------------------

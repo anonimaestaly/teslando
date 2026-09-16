@@ -1,5 +1,3 @@
-# Análise de pacotes: requests e pandas
-
 ## Desafio 03.1
 
 Escolhi o requests e o pandas porque foram os pacotes que eu já tinha usado no Desafio 03. Fiquei com eles porque ia ser mais fácil entender e explicar algo que eu já tinha mexido, do que pegar uma biblioteca nova do zero.

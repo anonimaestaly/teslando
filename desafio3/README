@@ -1,0 +1,70 @@
+# Desafio 03 — API + arquivo + e-mail
+
+Script que busca usuários na API pública [reqres.in](https://reqres.in),
+salva o resultado em CSV/TXT/JSON e envia o arquivo por e-mail (via Gmail).
+
+## Instalação
+
+```bash
+pip install -r requirements.txt
+```
+
+## Configuração (variáveis de ambiente, opcionais)
+
+Definir essas variáveis evita ter que digitar tudo a cada execução.
+Se não forem definidas, o script pergunta interativamente.
+
+| Variável             | O que é                                                        |
+|----------------------|-----------------------------------------------------------------|
+| `REQRES_API_KEY`     | Chave de acesso da API. Gere de graça em https://app.reqres.in |
+| `EMAIL_REMETENTE`    | E-mail que vai enviar a mensagem                                |
+| `EMAIL_SENHA_APP`    | **Senha de app** do Google (16 letras) — não é a senha normal   |
+
+### Como gerar a senha de app do Google
+
+A conta precisa ter verificação em duas etapas ativada. Depois, em
+`myaccount.google.com/apppasswords`, gere uma senha específica para
+"outro app" — é essa senha de 16 letras que vai em `EMAIL_SENHA_APP`,
+nunca a senha normal da conta.
+
+## Uso
+
+### Modo interativo (pergunta tudo no terminal)
+
+```bash
+python desafio03.py
+```
+
+### Modo não-interativo (para automação/CI/cron)
+
+```bash
+python desafio03.py --formato csv --remetente eu@gmail.com --destinatario voce@gmail.com
+```
+
+A senha nunca é aceita como argumento de linha de comando (ficaria
+exposta no histórico do shell) — só via `EMAIL_SENHA_APP` ou prompt
+escondido.
+
+Use `-v` / `--verbose` para logs em nível DEBUG (mostra a contagem de
+usuários por domínio de e-mail, por exemplo).
+
+## Testes
+
+```bash
+pytest -v
+```
+
+Os testes cobrem só a camada de lógica (`buscar_usuarios_na_api`,
+`analisar_dominios_de_email`, `salvar_usuarios_em_arquivo`,
+`email_parece_valido`, `montar_corpo_html`) — nada que dependa de
+`input()` ou de uma conexão de rede real (a API é mockada).
+
+## Estrutura do código
+
+O script é dividido em duas camadas:
+
+- **Lógica (core)**: funções puras/quase-puras, sem `input()`/`print()`.
+  São as testadas em `test_desafio03.py`.
+- **CLI**: funções que interagem com o terminal (perguntas, mensagens).
+  Isoladas para que a lógica possa ser testada e reaproveitada em outro
+  contexto (ex: uma API web) sem arrastar código de terminal junto.

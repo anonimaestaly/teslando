@@ -61,7 +61,3 @@ hotmail.com     1
 O .str é o que deixa eu mexer no texto de uma coluna (foi ele que usei pra separar o email pelo @), e o value_counts() já conta tudo pra mim, então não precisei ficar fazendo um for com contador manual, que ia dar bem mais trabalho.
 
 Olhando por cima o repositório do pandas, os arquivos que mais tem a ver com o que usei são o frame.py, que é onde fica o DataFrame, e o algorithms.py, que deve ser onde fica implementado o value_counts e outras funções parecidas.
-
-## No fim
-
-Dar uma olhada em como essas duas bibliotecas funcionam por dentro ajudou a entender melhor o meu próprio código, principalmente a parte da Session, que antes eu só usava sem parar pra pensar no porquê.

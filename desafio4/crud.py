@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "sql" / "tarefas.db"
-SCHEMA_PATH = Path(__file__).parent.parent / "sql" / "schema.sql"
+DB_PATH = Path(__file__).parent / "sql" / "tarefas.db"
+SCHEMA_PATH = Path(__file__).parent / "sql" / "schema.sql"
 
 
 @contextmanager
@@ -65,10 +65,22 @@ def atualizar_tarefa(tarefa_id, titulo=None, descricao=None, status=None):
     descricao = descricao if descricao is not None else tarefa["descricao"]
     status = status if status is not None else tarefa["status"]
 
+    # o schema exige: data_conclusao preenchida SE E SOMENTE SE status = 'concluida'.
+    # se o status está deixando de ser 'concluida', a data_conclusao tem que ser zerada
+    # pra não violar o CHECK do banco.
+    if status == "concluida":
+        data_conclusao = (
+            tarefa["data_conclusao"]
+            if tarefa["status"] == "concluida"
+            else datetime.now().isoformat(sep=" ", timespec="seconds")
+        )
+    else:
+        data_conclusao = None
+
     with conectar() as conn:
         conn.execute(
-            "UPDATE tarefa SET titulo = ?, descricao = ?, status = ? WHERE id = ?",
-            (titulo, descricao, status, tarefa_id),
+            "UPDATE tarefa SET titulo = ?, descricao = ?, status = ?, data_conclusao = ? WHERE id = ?",
+            (titulo, descricao, status, data_conclusao, tarefa_id),
         )
     return True
 

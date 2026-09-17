@@ -1,54 +1,82 @@
-# Task Manager
+# Modelagem — Gestão de Tarefas
 
-Sistema simples de gerenciamento de tarefas em Python, com persistência em
-banco de dados relacional. Projeto pensado como peça de portfólio, com foco
-em boas práticas de acesso a dados.
+Modelagem do banco de dados da aplicação de gestão de tarefas: entidades,
+atributos, relacionamento e diagrama entidade-relacionamento (ER).
 
-## Modelagem
+---
 
-Duas entidades: `usuario` (1) — (N) `tarefa`. Os atributos completos e o
-diagrama entidade-relacionamento estão detalhados em
-[`docs/modelagem.md`](docs/modelagem.md).
+## 1. Entidades e atributos
 
-## Banco de dados
+### 1.1 `usuario`
 
-**SGBD escolhido:** SQLite — não exige servidor, é ideal para portfólio e
-roda em qualquer máquina sem configuração extra.
+Representa cada pessoa que utiliza o sistema e pode criar suas próprias tarefas.
 
-O script `sql/schema.sql` cria as tabelas `usuario` e `tarefa`, com chave
-estrangeira e `ON DELETE CASCADE`.
+| Atributo       | Tipo          | Restrições                            |
+|----------------|---------------|-----------------------------------------|
+| `id`           | INTEGER       | Chave primária, autoincremento          |
+| `nome`         | VARCHAR(100)  | Obrigatório                             |
+| `email`        | VARCHAR(150)  | Obrigatório, único                      |
+| `senha_hash`   | VARCHAR(255)  | Obrigatório                             |
+| `data_criacao` | DATETIME      | Obrigatório, padrão: data/hora atual    |
 
-> O schema também roda em PostgreSQL/MySQL com pequenos ajustes de sintaxe,
-> indicados em comentário no próprio arquivo.
+### 1.2 `tarefa`
 
-## Como rodar
+Representa uma tarefa criada por um usuário, com título, descrição e status de andamento.
 
-Requer apenas Python 3.10+ (usa só a biblioteca padrão, via `sqlite3`).
+| Atributo         | Tipo         | Restrições                                                                                    |
+|------------------|--------------|--------------------------------------------------------------------------------------------------|
+| `id`             | INTEGER      | Chave primária, autoincremento                                                                   |
+| `titulo`         | VARCHAR(150) | Obrigatório                                                                                       |
+| `descricao`      | TEXT         | Opcional                                                                                          |
+| `status`         | VARCHAR(20)  | Obrigatório, padrão `'pendente'` — valores possíveis: `pendente`, `em_andamento`, `concluida`     |
+| `data_criacao`   | DATETIME     | Obrigatório, padrão: data/hora atual                                                              |
+| `data_conclusao` | DATETIME     | Opcional — só pode ser preenchida quando `status = 'concluida'`                                   |
+| `usuario_id`     | INTEGER      | Obrigatório — chave estrangeira para `usuario.id`                                                 |
 
-```bash
-cd task-manager
-python3 src/crud.py
+---
+
+## 2. Relacionamento
+
+| Entidade A | Cardinalidade | Entidade B | Regra ao excluir |
+|------------|:--------------:|------------|-------------------|
+| `usuario`  | 1 — N           | `tarefa`   | `ON DELETE CASCADE` |
+
+Um `usuario` pode ter **N** tarefas, e cada `tarefa` pertence a exatamente **um** `usuario`. Ao excluir um usuário, todas as suas tarefas são excluídas automaticamente em cascata.
+
+---
+
+## 3. Diagrama entidade-relacionamento
+
+```mermaid
+erDiagram
+    USUARIO ||--o{ TAREFA : possui
+
+    USUARIO {
+        integer id PK
+        varchar nome
+        varchar email UK
+        varchar senha_hash
+        datetime data_criacao
+    }
+
+    TAREFA {
+        integer id PK
+        varchar titulo
+        text descricao
+        varchar status
+        datetime data_criacao
+        datetime data_conclusao
+        integer usuario_id FK
+    }
 ```
 
-Isso vai:
+---
 
-1. Criar o banco `sql/tarefas.db`, executando o `schema.sql` (se ainda não existir).
-2. Rodar uma demonstração das operações: criar, listar, atualizar, concluir e deletar tarefas.
+## 4. Regras de negócio aplicadas na modelagem
 
-## Operações disponíveis (`src/crud.py`)
-
-| Função                        | Operação | Descrição                                |
-|--------------------------------|----------|-------------------------------------------|
-| `criar_tarefa(...)`             | Create   | Insere uma nova tarefa                    |
-| `listar_tarefas(usuario_id)`    | Read     | Lista tarefas (todas ou de um usuário)    |
-| `buscar_tarefa_por_id(id)`      | Read     | Busca uma tarefa específica               |
-| `atualizar_tarefa(...)`         | Update   | Atualiza título, descrição e/ou status    |
-| `concluir_tarefa(id)`           | Update   | Marca como concluída e registra a data    |
-| `deletar_tarefa(id)`            | Delete   | Remove uma tarefa                         |
-
-## Boas práticas aplicadas
-
-- **Queries parametrizadas** (`?`) — evita SQL Injection.
-- **Separação de responsabilidades** — camada de acesso a dados isolada do uso (bloco `__main__` como demonstração).
-- **Context manager** para conexão — commit/rollback e `close()` automáticos.
-- **Constraint `CHECK`** no campo `status` — garante valores válidos direto no banco.
+| Regra | Onde é garantida |
+|-------|-------------------|
+| `email` único por usuário — evita cadastros duplicados | Constraint `UNIQUE` |
+| `status` só aceita `pendente`, `em_andamento` ou `concluida` | Constraint `CHECK` |
+| `data_conclusao` só existe quando `status = 'concluida'` | Constraint `CHECK` |
+| Exclusão de usuário remove suas tarefas automaticamente, evitando tarefas órfãs | `ON DELETE CASCADE` |

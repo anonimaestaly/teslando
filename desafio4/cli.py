@@ -22,6 +22,7 @@ MENU = """
 """
 
 USUARIO_ID = 1  # aplicação de usuário único por enquanto
+USUARIO_ID = 1  # aplicação de usuário único por enquanto
 
 
 def _print_tarefa(t):

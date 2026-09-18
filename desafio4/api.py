@@ -1,5 +1,6 @@
 """API REST para o CRUD de tarefas, usando FastAPI."""
 
+from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
 
@@ -74,12 +75,21 @@ class TarefaOut(BaseModel):
     titulo: str = Field(description="Nome da tarefa.")
     descricao: Optional[str] = Field(description="Detalhes da tarefa.")
     status: str = Field(description="Situação atual da tarefa.")
-    data_criacao: str = Field(description="Data e hora em que a tarefa foi criada.")
-    data_conclusao: Optional[str] = Field(description="Data e hora em que a tarefa foi concluída.")
+    # no SQLite essas datas vinham como string (isoformat). No MySQL o
+    # driver já devolve objetos datetime de verdade pras colunas DATETIME,
+    # então o tipo aqui precisou mudar — o FastAPI serializa datetime
+    # pra ISO 8601 no JSON automaticamente, então na prática o retorno
+    # pro cliente da API continua parecendo igual
+    data_criacao: datetime = Field(description="Data e hora em que a tarefa foi criada.")
+    data_conclusao: Optional[datetime] = Field(description="Data e hora em que a tarefa foi concluída.")
     usuario_id: int = Field(description="Id do usuário dono da tarefa.")
 
 
 def _row_to_dict(row):
+    # essa função sobrou de quando o crud.py retornava sqlite3.Row —
+    # agora o crud já devolve dict puro (por causa do cursor(dictionary=True)),
+    # então dict(row) aqui só faz uma cópia, mas mantive porque não faz mal
+    # nenhum e deixa o código igual em ambos os SGBDs, se um dia voltar
     return dict(row) if row is not None else None
 
 

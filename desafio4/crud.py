@@ -1,19 +1,35 @@
-"""CRUD de tarefas usando SQLite."""
+"""CRUD de tarefas usando MySQL.
 
-import sqlite3
+Migrei de SQLite pra MySQL — a lógica de negócio continua a mesma,
+só troquei a forma como a gente fala com o banco.
+"""
+
+import mysql.connector
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "sql" / "tarefas.db"
 SCHEMA_PATH = Path(__file__).parent / "sql" / "schema.sql"
+
+# troque pelos dados reais do seu MySQL antes de rodar
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "seu_usuario",
+    "password": "sua_senha",
+    "database": "gestao_tarefas",
+}
 
 
 @contextmanager
 def conectar():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
+    """Abre uma conexão, garante commit no final e rollback se algo quebrar.
+
+    No SQLite eu usava `conn.row_factory = sqlite3.Row` pra pegar os
+    resultados como dict. Aqui isso não existe — cada função que lê
+    dados abre o cursor com `dictionary=True` na hora, então o resto
+    do código (tipo `tarefa["titulo"]`) continua funcionando igual.
+    """
+    conn = mysql.connector.connect(**DB_CONFIG)
     try:
         yield conn
         conn.commit()
@@ -25,34 +41,64 @@ def conectar():
 
 
 def inicializar_banco():
-    with conectar() as conn:
-        conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    # aqui não dá pra usar conectar() direto, porque ele já assume que
+    # o banco "gestao_tarefas" existe — e o schema.sql é quem cria esse
+    # banco (CREATE DATABASE + USE). Então essa primeira conexão precisa
+    # ser "sem banco nenhum selecionado" ainda.
+    conn = mysql.connector.connect(
+        host=DB_CONFIG["host"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+    )
+    try:
+        cursor = conn.cursor()
+        script = SCHEMA_PATH.read_text(encoding="utf-8")
+        # o executescript do sqlite não existe aqui — o jeito do
+        # mysql-connector rodar vários comandos SQL de uma vez é isso,
+        # passando multi=True e iterando os resultados
+        for _ in cursor.execute(script, multi=True):
+            pass
+        conn.commit()
+        cursor.close()
+    finally:
+        conn.close()
 
 
 def criar_tarefa(titulo, descricao, usuario_id, status="pendente"):
     with conectar() as conn:
-        cursor = conn.execute(
-            "INSERT INTO tarefa (titulo, descricao, status, usuario_id) VALUES (?, ?, ?, ?)",
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO tarefa (titulo, descricao, status, usuario_id) VALUES (%s, %s, %s, %s)",
             (titulo, descricao, status, usuario_id),
         )
-        return cursor.lastrowid
+        novo_id = cursor.lastrowid
+        cursor.close()
+        return novo_id
 
 
 def listar_tarefas(usuario_id=None):
+    # se vier usuario_id, filtra só as tarefas dele; senão, lista geral
     with conectar() as conn:
+        cursor = conn.cursor(dictionary=True)
         if usuario_id is not None:
-            cursor = conn.execute(
-                "SELECT * FROM tarefa WHERE usuario_id = ? ORDER BY data_criacao DESC",
+            cursor.execute(
+                "SELECT * FROM tarefa WHERE usuario_id = %s ORDER BY data_criacao DESC",
                 (usuario_id,),
             )
         else:
-            cursor = conn.execute("SELECT * FROM tarefa ORDER BY data_criacao DESC")
-        return cursor.fetchall()
+            cursor.execute("SELECT * FROM tarefa ORDER BY data_criacao DESC")
+        resultado = cursor.fetchall()
+        cursor.close()
+        return resultado
 
 
 def buscar_tarefa_por_id(tarefa_id):
     with conectar() as conn:
-        return conn.execute("SELECT * FROM tarefa WHERE id = ?", (tarefa_id,)).fetchone()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM tarefa WHERE id = %s", (tarefa_id,))
+        resultado = cursor.fetchone()
+        cursor.close()
+        return resultado
 
 
 def atualizar_tarefa(tarefa_id, titulo=None, descricao=None, status=None):
@@ -72,61 +118,12 @@ def atualizar_tarefa(tarefa_id, titulo=None, descricao=None, status=None):
         data_conclusao = (
             tarefa["data_conclusao"]
             if tarefa["status"] == "concluida"
-            else datetime.now().isoformat(sep=" ", timespec="seconds")
+            else datetime.now().replace(microsecond=0)
         )
     else:
         data_conclusao = None
 
     with conectar() as conn:
-        conn.execute(
-            "UPDATE tarefa SET titulo = ?, descricao = ?, status = ?, data_conclusao = ? WHERE id = ?",
-            (titulo, descricao, status, data_conclusao, tarefa_id),
-        )
-    return True
-
-
-def concluir_tarefa(tarefa_id):
-    if buscar_tarefa_por_id(tarefa_id) is None:
-        return False
-
-    agora = datetime.now().isoformat(sep=" ", timespec="seconds")
-    with conectar() as conn:
-        conn.execute(
-            "UPDATE tarefa SET status = 'concluida', data_conclusao = ? WHERE id = ?",
-            (agora, tarefa_id),
-        )
-    return True
-
-
-def deletar_tarefa(tarefa_id):
-    with conectar() as conn:
-        cursor = conn.execute("DELETE FROM tarefa WHERE id = ?", (tarefa_id,))
-        return cursor.rowcount > 0
-
-
-def _print_tarefas(tarefas):
-    if not tarefas:
-        print("  nenhuma tarefa encontrada")
-    for t in tarefas:
-        print(f"  [{t['id']}] {t['titulo']} — {t['status']} (concluída: {t['data_conclusao']})")
-
-
-if __name__ == "__main__":
-    inicializar_banco()
-    usuario_id = 1
-
-    id1 = criar_tarefa("Estudar SQL", "Revisar JOINs e normalização", usuario_id)
-    id2 = criar_tarefa("Fazer exercícios de Python", "5 problemas no HackerRank", usuario_id)
-
-    print("tarefas criadas:")
-    _print_tarefas(listar_tarefas(usuario_id))
-
-    atualizar_tarefa(id1, status="em_andamento")
-    concluir_tarefa(id2)
-
-    print("\napós atualizar e concluir:")
-    _print_tarefas(listar_tarefas(usuario_id))
-
-    deletar_tarefa(id1)
-    print("\napós deletar a primeira:")
-    _print_tarefas(listar_tarefas(usuario_id))
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE tarefa

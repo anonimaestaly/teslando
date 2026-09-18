@@ -1,105 +1,105 @@
-# Gestão de Tarefas — Modelagem + CRUD
+# Gestão de Tarefas
 
-Projeto de desafio: modelagem de banco de dados simples e aplicação de gestão
-de tarefas, onde usuários podem criar, visualizar, atualizar e excluir suas
-próprias tarefas.
+Esse é o meu projeto pro desafio de modelagem de banco de dados. A ideia era
+simples: montar um banco pra guardar tarefas de usuários, e depois construir
+uma forma de mexer nesses dados (criar, ver, editar e apagar tarefas).
 
-## Estrutura do projeto
+Decidi ir um pouco além do pedido e fiz duas formas de usar o sistema: um
+menu direto no terminal, e uma API de verdade, pra treinar as duas coisas.
 
-```
-desafio4/
-├── Readme.md
-├── modelagem.md       # Entidades, atributos e diagrama ER
-├── crud.py            # Funções de acesso a dados (Create, Read, Update, Delete)
-├── cli.py             # Menu interativo no terminal
-├── api.py             # API REST com FastAPI
-└── sql/
-    ├── schema.sql      # Script de criação das tabelas (SQLite)
-    └── tarefas.db      # Criado automaticamente ao rodar o crud.py, cli.py ou api.py
-```
+## O que tem em cada arquivo
 
-## Modelagem
+- `modelagem.md` — como pensei o banco: as entidades, os atributos de cada
+  uma, e o diagrama mostrando como elas se relacionam.
+- `sql/schema.sql` — o script que cria as tabelas no banco.
+- `sql/tarefas.db` — o banco em si (arquivo SQLite). É gerado sozinho na
+  primeira vez que você roda qualquer um dos scripts abaixo.
+- `crud.py` — onde ficam as funções que realmente mexem no banco: criar,
+  listar, buscar, atualizar, concluir e deletar tarefa. Todo o resto do
+  projeto usa essas funções, não conversa com o banco diretamente.
+- `cli.py` — um menu no terminal pra usar o CRUD sem precisar escrever código.
+- `api.py` — a mesma coisa, mas como uma API REST feita com FastAPI, pra
+  quem quiser acessar via HTTP em vez de terminal.
 
-Duas entidades: `usuario` (1) — (N) `tarefa`. Os atributos completos e o
-diagrama entidade-relacionamento estão detalhados em
-[`modelagem.md`](modelagem.md).
+## Por que SQLite
 
-## Banco de dados
-
-**SGBD escolhido:** SQLite — não exige servidor, é ideal para portfólio e
-roda em qualquer máquina sem configuração extra.
-
-O script `sql/schema.sql` cria as tabelas `usuario` e `tarefa`, com chave
-estrangeira e `ON DELETE CASCADE`.
-
-> O schema também roda em PostgreSQL/MySQL com pequenos ajustes de sintaxe,
-> indicados em comentário no próprio arquivo.
+Escolhi SQLite porque o banco inteiro fica guardado num arquivo só, sem
+precisar instalar nem configurar um servidor separado. Pra um projeto de
+portfólio isso facilita muito — quem for testar meu código não precisa
+instalar MySQL ou PostgreSQL antes, é só rodar.
 
 ## Como rodar
 
-Requer apenas Python 3.10+ (usa só a biblioteca padrão, via `sqlite3`).
+Só precisa de Python (a parte do banco usa `sqlite3`, que já vem
+instalado por padrão).
 
-### Demonstração fixa (`crud.py`)
-
+**Testar a lógica direto:**
 ```bash
 cd desafio4
 python crud.py
 ```
+Isso cria o banco (se ainda não existir) e roda um teste que cria, atualiza,
+conclui e apaga algumas tarefas de exemplo, imprimindo o resultado de cada
+passo no terminal.
 
-Isso vai:
-
-1. Criar o banco `sql/tarefas.db`, executando o `schema.sql` (se ainda não existir).
-2. Rodar uma demonstração das operações: criar, listar, atualizar, concluir e deletar tarefas.
-
-### Menu interativo no terminal (`cli.py`)
-
+**Usar o menu interativo:**
 ```bash
 cd desafio4
 python cli.py
 ```
+Abre um menu numerado — escolhe a opção digitando o número e segue as
+instruções que aparecem na tela.
 
-Abre um menu no terminal para criar, listar, buscar, atualizar, concluir e deletar tarefas manualmente.
+**Subir a API:**
 
-### API REST (`api.py`)
-
-Requer instalar duas dependências extras:
-
+Primeiro instala o que falta:
 ```bash
 pip install fastapi uvicorn
 ```
 
-Depois, para subir o servidor:
-
+Depois:
 ```bash
 cd desafio4
 uvicorn api:app --reload
 ```
 
-A documentação interativa fica disponível em `http://127.0.0.1:8000/docs`.
+Com o servidor rodando, dá pra abrir `http://127.0.0.1:8000/docs` no
+navegador e testar cada rota por lá, sem precisar escrever nenhum código
+pra fazer as requisições.
 
-| Método   | Rota                          | Descrição                          |
-|----------|-------------------------------|--------------------------------------|
-| `POST`   | `/tarefas`                    | Cria uma nova tarefa                 |
-| `GET`    | `/tarefas`                    | Lista tarefas (filtro opcional `usuario_id`) |
-| `GET`    | `/tarefas/{id}`                | Busca uma tarefa específica          |
-| `PUT`    | `/tarefas/{id}`                | Atualiza título, descrição e/ou status |
-| `PATCH`  | `/tarefas/{id}/concluir`       | Marca como concluída e registra a data |
-| `DELETE` | `/tarefas/{id}`                | Remove uma tarefa                    |
+## As rotas da API
 
-## Operações disponíveis (`crud.py`)
+| Rota                       | O que faz                                  |
+|-----------------------------|---------------------------------------------|
+| `POST /tarefas`              | Cria uma tarefa nova                        |
+| `GET /tarefas`               | Lista as tarefas (dá pra filtrar por usuário) |
+| `GET /tarefas/{id}`          | Busca uma tarefa específica                 |
+| `PUT /tarefas/{id}`          | Atualiza título, descrição ou status        |
+| `PATCH /tarefas/{id}/concluir` | Marca como concluída                      |
+| `DELETE /tarefas/{id}`       | Apaga a tarefa                              |
 
-| Função                        | Operação | Descrição                                |
-|--------------------------------|----------|-------------------------------------------|
-| `criar_tarefa(...)`             | Create   | Insere uma nova tarefa                    |
-| `listar_tarefas(usuario_id)`    | Read     | Lista tarefas (todas ou de um usuário)    |
-| `buscar_tarefa_por_id(id)`      | Read     | Busca uma tarefa específica               |
-| `atualizar_tarefa(...)`         | Update   | Atualiza título, descrição e/ou status    |
-| `concluir_tarefa(id)`           | Update   | Marca como concluída e registra a data    |
-| `deletar_tarefa(id)`            | Delete   | Remove uma tarefa                         |
+## Decisões que tomei no código
 
-## Boas práticas aplicadas
+Separei o projeto assim de propósito: o `crud.py` é a única parte que sabe
+escrever SQL. Tanto o `cli.py` quanto o `api.py` só chamam as funções dele —
+nenhum dos dois monta uma query sozinho. Isso significa que, se um dia eu
+quiser trocar de SQLite pra outro banco, só preciso mexer no `crud.py`, o
+resto continua igual.
 
-- **Queries parametrizadas** (`?`) — evita SQL Injection.
-- **Separação de responsabilidades** — camada de acesso a dados isolada do uso (bloco `__main__` como demonstração).
-- **Context manager** para conexão — commit/rollback e `close()` automáticos.
-- **Constraint `CHECK`** no campo `status` e no par `status`/`data_conclusao` — garante valores válidos e consistência direto no banco.
+Outras coisas que me preocupei em fazer certo:
+
+- Todas as consultas usam `?` no lugar dos valores (parâmetros), em vez de
+  montar a query colando texto — isso evita SQL Injection.
+- A conexão com o banco é aberta e fechada automaticamente (usando um
+  context manager), então não corro risco de esquecer uma conexão aberta ou
+  de deixar o banco num estado inconsistente se der algum erro no meio do
+  caminho.
+- O banco tem uma regra (`CHECK`) garantindo que uma tarefa só pode ter data
+  de conclusão se o status dela for "concluída" — assim, mesmo que algum bug
+  no código tente salvar algo errado, o próprio banco recusa.
+
+## O que ficaria pra uma próxima versão
+
+- Autenticação de verdade (hoje o `cli.py` assume um usuário fixo pra
+  simplificar; o banco já tem a tabela de usuário pronta pra isso).
+- Rotas na API pra criar e gerenciar usuários, não só tarefas.

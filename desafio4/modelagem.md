@@ -1,82 +1,74 @@
-# Modelagem — Gestão de Tarefas
+# Modelagem do banco — Gestão de Tarefas
 
-Modelagem do banco de dados da aplicação de gestão de tarefas: entidades,
-atributos, relacionamento e diagrama entidade-relacionamento (ER).
+Pra esse desafio, pensei em duas coisas que precisavam existir no sistema: quem usa
+o app (o usuário) e o que essa pessoa quer organizar (a tarefa). A partir disso,
+defini duas tabelas.
 
----
+## Usuário
 
-## 1. Entidades e atributos
+Cada usuário tem um id (gerado automaticamente), nome, email e uma senha (guardada
+como hash, nunca em texto puro — isso é uma prática básica de segurança). O email
+é único, pra não deixar duas pessoas se cadastrarem com o mesmo email.
 
-### 1.1 `usuario`
+- id — chave primária, autoincremento
+- nome — obrigatório
+- email — obrigatório e único
+- senha_hash — obrigatório
+- data_criacao — preenchida automaticamente quando o usuário é criado
 
-Representa cada pessoa que utiliza o sistema e pode criar suas próprias tarefas.
+## Tarefa
 
-| Atributo       | Tipo          | Restrições                            |
-|----------------|---------------|-----------------------------------------|
-| `id`           | INTEGER       | Chave primária, autoincremento          |
-| `nome`         | VARCHAR(100)  | Obrigatório                             |
-| `email`        | VARCHAR(150)  | Obrigatório, único                      |
-| `senha_hash`   | VARCHAR(255)  | Obrigatório                             |
-| `data_criacao` | DATETIME      | Obrigatório, padrão: data/hora atual    |
+Cada tarefa pertence a um usuário e tem um título, uma descrição (opcional), um
+status e as datas de criação e conclusão.
 
-### 1.2 `tarefa`
+- id — chave primária, autoincremento
+- titulo — obrigatório
+- descricao — opcional
+- status — só pode ser 'pendente', 'em_andamento' ou 'concluida' (começa como
+  'pendente')
+- data_criacao — preenchida automaticamente
+- data_conclusao — só existe quando a tarefa está concluída
+- usuario_id — de quem é a tarefa (chave estrangeira pra usuario.id)
 
-Representa uma tarefa criada por um usuário, com título, descrição e status de andamento.
+## Como as duas se relacionam
 
-| Atributo         | Tipo         | Restrições                                                                                    |
-|------------------|--------------|--------------------------------------------------------------------------------------------------|
-| `id`             | INTEGER      | Chave primária, autoincremento                                                                   |
-| `titulo`         | VARCHAR(150) | Obrigatório                                                                                       |
-| `descricao`      | TEXT         | Opcional                                                                                          |
-| `status`         | VARCHAR(20)  | Obrigatório, padrão `'pendente'` — valores possíveis: `pendente`, `em_andamento`, `concluida`     |
-| `data_criacao`   | DATETIME     | Obrigatório, padrão: data/hora atual                                                              |
-| `data_conclusao` | DATETIME     | Opcional — só pode ser preenchida quando `status = 'concluida'`                                   |
-| `usuario_id`     | INTEGER      | Obrigatório — chave estrangeira para `usuario.id`                                                 |
+Um usuário pode ter várias tarefas, mas cada tarefa é de um único usuário —
+relacionamento 1:N. Configurei pra que, se um usuário for excluído, todas as
+tarefas dele sejam excluídas junto (ON DELETE CASCADE), pra não sobrar tarefa
+"solta" sem dono no banco.
 
----
-
-## 2. Relacionamento
-
-| Entidade A | Cardinalidade | Entidade B | Regra ao excluir |
-|------------|:--------------:|------------|-------------------|
-| `usuario`  | 1 — N           | `tarefa`   | `ON DELETE CASCADE` |
-
-Um `usuario` pode ter **N** tarefas, e cada `tarefa` pertence a exatamente **um** `usuario`. Ao excluir um usuário, todas as suas tarefas são excluídas automaticamente em cascata.
-
----
-
-## 3. Diagrama entidade-relacionamento
+## Diagrama
 
 ```mermaid
 erDiagram
     USUARIO ||--o{ TAREFA : possui
 
     USUARIO {
-        integer id PK
-        varchar nome
-        varchar email UK
-        varchar senha_hash
+        int id PK
+        string nome
+        string email UK
+        string senha_hash
         datetime data_criacao
     }
 
     TAREFA {
-        integer id PK
-        varchar titulo
-        text descricao
-        varchar status
+        int id PK
+        string titulo
+        string descricao
+        string status
         datetime data_criacao
         datetime data_conclusao
-        integer usuario_id FK
+        int usuario_id FK
     }
 ```
 
----
+## Algumas decisões que tomei ao modelar
 
-## 4. Regras de negócio aplicadas na modelagem
-
-| Regra | Onde é garantida |
-|-------|-------------------|
-| `email` único por usuário — evita cadastros duplicados | Constraint `UNIQUE` |
-| `status` só aceita `pendente`, `em_andamento` ou `concluida` | Constraint `CHECK` |
-| `data_conclusao` só existe quando `status = 'concluida'` | Constraint `CHECK` |
-| Exclusão de usuário remove suas tarefas automaticamente, evitando tarefas órfãs | `ON DELETE CASCADE` |
+- Coloquei um `CHECK` no status pra o banco não aceitar nenhum valor fora dos
+  três permitidos, mesmo que algum bug no código tentasse inserir outra coisa.
+- Também coloquei um `CHECK` garantindo que `data_conclusao` só pode estar
+  preenchida quando o status é 'concluida' — assim não corro o risco de ter uma
+  tarefa marcada como pendente mas com data de conclusão registrada.
+- Criei um índice em `usuario_id` na tabela tarefa, pra deixar mais rápida a
+  busca de "todas as tarefas de um usuário", que é a consulta mais comum do
+  sistema.

@@ -1,175 +1,122 @@
-"""API REST para o CRUD de tarefas, usando FastAPI."""
+"""
+API REST - Gestão de Tarefas (MySQL)
 
-from datetime import datetime
-from typing import Optional
-from contextlib import asynccontextmanager
+Dependências:
+    pip install flask mysql-connector-python
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+Executar:
+    python api.py
+    (por padrão sobe em http://localhost:5000)
+"""
 
-from crud import (
-    inicializar_banco,
-    criar_tarefa,
-    listar_tarefas,
-    buscar_tarefa_por_id,
-    atualizar_tarefa,
-    concluir_tarefa,
-    deletar_tarefa,
-)
+from flask import Flask, jsonify, request
+from mysql.connector import Error
 
-STATUS_VALIDOS = ("pendente", "em_andamento", "concluida")
+import crud
+
+app = Flask(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    inicializar_banco()
-    yield
+def erro(mensagem: str, codigo: int = 400):
+    return jsonify({"erro": mensagem}), codigo
 
 
-app = FastAPI(
-    title="Gestão de Tarefas",
-    description=(
-        "API para criar, listar, buscar, atualizar, concluir e apagar "
-        "tarefas. Cada tarefa pertence a um usuário (usuario_id)."
-    ),
-    version="0.1.0",
-    lifespan=lifespan,
-)
+# ---------------------------------------------------------------------------
+# USUÁRIOS
+# ---------------------------------------------------------------------------
+
+@app.route("/usuarios", methods=["POST"])
+def criar_usuario():
+    dados = request.get_json(silent=True) or {}
+    nome = dados.get("nome")
+    email = dados.get("email")
+    if not nome or not email:
+        return erro("Campos 'nome' e 'email' são obrigatórios.")
+    try:
+        usuario_id = crud.criar_usuario(nome, email)
+        return jsonify({"id": usuario_id, "nome": nome, "email": email}), 201
+    except Error as e:
+        return erro(str(e), 500)
 
 
-# ---------- Schemas (Pydantic) ----------
-
-class TarefaCreate(BaseModel):
-    titulo: str = Field(
-        min_length=1,
-        description="Nome curto da tarefa.",
-        examples=["Estudar para a prova"],
-    )
-    descricao: Optional[str] = Field(
-        default=None,
-        description="Detalhes da tarefa (opcional).",
-        examples=["Revisar capítulos 3 e 4"],
-    )
-    usuario_id: int = Field(
-        description="Id do usuário dono da tarefa.",
-        examples=[1],
-    )
-    status: str = Field(
-        default="pendente",
-        description="Situação da tarefa: pendente, em_andamento ou concluida.",
-        examples=["pendente"],
-    )
+@app.route("/usuarios", methods=["GET"])
+def listar_usuarios():
+    return jsonify(crud.listar_usuarios())
 
 
-class TarefaUpdate(BaseModel):
-    titulo: Optional[str] = Field(default=None, description="Novo título (opcional).")
-    descricao: Optional[str] = Field(default=None, description="Nova descrição (opcional).")
-    status: Optional[str] = Field(
-        default=None,
-        description="Novo status: pendente, em_andamento ou concluida (opcional).",
-    )
+@app.route("/usuarios/<int:usuario_id>", methods=["GET"])
+def buscar_usuario(usuario_id):
+    usuario = crud.buscar_usuario(usuario_id)
+    if not usuario:
+        return erro("Usuário não encontrado.", 404)
+    return jsonify(usuario)
 
 
-class TarefaOut(BaseModel):
-    id: int = Field(description="Id da tarefa.")
-    titulo: str = Field(description="Nome da tarefa.")
-    descricao: Optional[str] = Field(description="Detalhes da tarefa.")
-    status: str = Field(description="Situação atual da tarefa.")
-    # no SQLite essas datas vinham como string (isoformat). No MySQL o
-    # driver já devolve objetos datetime de verdade pras colunas DATETIME,
-    # então o tipo aqui precisou mudar — o FastAPI serializa datetime
-    # pra ISO 8601 no JSON automaticamente, então na prática o retorno
-    # pro cliente da API continua parecendo igual
-    data_criacao: datetime = Field(description="Data e hora em que a tarefa foi criada.")
-    data_conclusao: Optional[datetime] = Field(description="Data e hora em que a tarefa foi concluída.")
-    usuario_id: int = Field(description="Id do usuário dono da tarefa.")
+# ---------------------------------------------------------------------------
+# TAREFAS
+# ---------------------------------------------------------------------------
+
+@app.route("/tarefas", methods=["POST"])
+def criar_tarefa():
+    dados = request.get_json(silent=True) or {}
+    usuario_id = dados.get("usuario_id")
+    titulo = dados.get("titulo")
+    descricao = dados.get("descricao", "")
+
+    if not usuario_id or not titulo:
+        return erro("Campos 'usuario_id' e 'titulo' são obrigatórios.")
+    if not crud.buscar_usuario(usuario_id):
+        return erro("Usuário não encontrado.", 404)
+
+    try:
+        tarefa_id = crud.criar_tarefa(usuario_id, titulo, descricao)
+        return jsonify(crud.buscar_tarefa(tarefa_id)), 201
+    except Error as e:
+        return erro(str(e), 500)
 
 
-def _row_to_dict(row):
-    # essa função sobrou de quando o crud.py retornava sqlite3.Row —
-    # agora o crud já devolve dict puro (por causa do cursor(dictionary=True)),
-    # então dict(row) aqui só faz uma cópia, mas mantive porque não faz mal
-    # nenhum e deixa o código igual em ambos os SGBDs, se um dia voltar
-    return dict(row) if row is not None else None
+@app.route("/tarefas", methods=["GET"])
+def listar_tarefas():
+    usuario_id = request.args.get("usuario_id", type=int)
+    return jsonify(crud.listar_tarefas(usuario_id))
 
 
-# ---------- Rotas ----------
-
-@app.post(
-    "/tarefas",
-    response_model=TarefaOut,
-    status_code=201,
-    summary="Criar uma nova tarefa",
-    description="Cria uma tarefa para um usuário. O status inicial pode ser informado, o padrão é 'pendente'.",
-)
-def criar(tarefa: TarefaCreate):
-    if tarefa.status not in STATUS_VALIDOS:
-        raise HTTPException(status_code=422, detail=f"status deve ser um de {STATUS_VALIDOS}")
-    tarefa_id = criar_tarefa(tarefa.titulo, tarefa.descricao, tarefa.usuario_id, tarefa.status)
-    return _row_to_dict(buscar_tarefa_por_id(tarefa_id))
+@app.route("/tarefas/<int:tarefa_id>", methods=["GET"])
+def buscar_tarefa(tarefa_id):
+    tarefa = crud.buscar_tarefa(tarefa_id)
+    if not tarefa:
+        return erro("Tarefa não encontrada.", 404)
+    return jsonify(tarefa)
 
 
-@app.get(
-    "/tarefas",
-    response_model=list[TarefaOut],
-    summary="Listar tarefas",
-    description="Lista todas as tarefas. Se informar usuario_id, mostra só as tarefas daquele usuário.",
-)
-def listar(usuario_id: Optional[int] = None):
-    return [dict(t) for t in listar_tarefas(usuario_id)]
+@app.route("/tarefas/<int:tarefa_id>", methods=["PUT"])
+def atualizar_tarefa(tarefa_id):
+    if not crud.buscar_tarefa(tarefa_id):
+        return erro("Tarefa não encontrada.", 404)
+
+    dados = request.get_json(silent=True) or {}
+    if not dados:
+        return erro("Envie ao menos um campo para atualizar.")
+
+    crud.atualizar_tarefa(tarefa_id, **dados)
+    return jsonify(crud.buscar_tarefa(tarefa_id))
 
 
-@app.get(
-    "/tarefas/{tarefa_id}",
-    response_model=TarefaOut,
-    summary="Buscar uma tarefa pelo id",
-    description="Retorna os dados de uma tarefa específica. Se o id não existir, retorna erro 404.",
-)
-def buscar(tarefa_id: int):
-    tarefa = buscar_tarefa_por_id(tarefa_id)
-    if tarefa is None:
-        raise HTTPException(status_code=404, detail="tarefa não encontrada")
-    return dict(tarefa)
+@app.route("/tarefas/<int:tarefa_id>/concluir", methods=["PATCH"])
+def concluir_tarefa(tarefa_id):
+    if not crud.buscar_tarefa(tarefa_id):
+        return erro("Tarefa não encontrada.", 404)
+    crud.concluir_tarefa(tarefa_id)
+    return jsonify(crud.buscar_tarefa(tarefa_id))
 
 
-@app.put(
-    "/tarefas/{tarefa_id}",
-    response_model=TarefaOut,
-    summary="Atualizar título, descrição ou status",
-    description="Atualiza os campos enviados de uma tarefa existente. Campos não enviados não são alterados.",
-)
-def atualizar(tarefa_id: int, tarefa: TarefaUpdate):
-    if tarefa.status is not None and tarefa.status not in STATUS_VALIDOS:
-        raise HTTPException(status_code=422, detail=f"status deve ser um de {STATUS_VALIDOS}")
-    atualizado = atualizar_tarefa(
-        tarefa_id,
-        titulo=tarefa.titulo,
-        descricao=tarefa.descricao,
-        status=tarefa.status,
-    )
-    if not atualizado:
-        raise HTTPException(status_code=404, detail="tarefa não encontrada")
-    return dict(buscar_tarefa_por_id(tarefa_id))
+@app.route("/tarefas/<int:tarefa_id>", methods=["DELETE"])
+def excluir_tarefa(tarefa_id):
+    if not crud.buscar_tarefa(tarefa_id):
+        return erro("Tarefa não encontrada.", 404)
+    crud.excluir_tarefa(tarefa_id)
+    return "", 204
 
 
-@app.patch(
-    "/tarefas/{tarefa_id}/concluir",
-    response_model=TarefaOut,
-    summary="Marcar tarefa como concluída",
-    description="Muda o status da tarefa para 'concluida' e registra a data/hora de conclusão.",
-)
-def concluir(tarefa_id: int):
-    if not concluir_tarefa(tarefa_id):
-        raise HTTPException(status_code=404, detail="tarefa não encontrada")
-    return dict(buscar_tarefa_por_id(tarefa_id))
-
-
-@app.delete(
-    "/tarefas/{tarefa_id}",
-    status_code=204,
-    summary="Apagar uma tarefa",
-    description="Remove definitivamente a tarefa do banco de dados.",
-)
-def deletar(tarefa_id: int):
-    if not deletar_tarefa(tarefa_id):
-        raise HTTPException(status_code=404, detail="tarefa não encontrada")
+if __name__ == "__main__":
+    app.run(debug=True)

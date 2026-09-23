@@ -1,147 +1,157 @@
-"""Interface de linha de comando para o CRUD de tarefas."""
+"""
+CLI - Gestão de Tarefas (MySQL)
 
-from crud import (
-    inicializar_banco,
-    criar_tarefa,
-    listar_tarefas,
-    buscar_tarefa_por_id,
-    atualizar_tarefa,
-    concluir_tarefa,
-    deletar_tarefa,
-)
+Dependências:
+    pip install mysql-connector-python
 
-MENU = """
-=== Gestão de Tarefas ===
-1 - Criar tarefa
-2 - Listar tarefas
-3 - Buscar tarefa por id
-4 - Atualizar tarefa
-5 - Concluir tarefa
-6 - Deletar tarefa
-0 - Sair
+Executar:
+    python cli.py
 """
 
-USUARIO_ID = 1  # aplicação de usuário único por enquanto
-USUARIO_ID = 1  # aplicação de usuário único por enquanto
+from mysql.connector import Error
+
+import crud
+
+MENU = """
+====== GESTÃO DE TAREFAS ======
+1. Criar usuário
+2. Listar usuários
+3. Criar tarefa
+4. Listar tarefas
+5. Ver detalhes de uma tarefa
+6. Atualizar tarefa
+7. Concluir tarefa
+8. Excluir tarefa
+0. Sair
+> """
 
 
-def _print_tarefa(t):
-    print(
-        f"  [{t['id']}] {t['titulo']} — {t['status']}"
-        f" | criada em: {t['data_criacao']}"
-        f" | concluída em: {t['data_conclusao']}"
-    )
+def input_int(mensagem: str) -> int:
+    while True:
+        valor = input(mensagem).strip()
+        if valor.isdigit():
+            return int(valor)
+        print("Digite um número válido.")
 
 
-def _print_tarefas(tarefas):
+def criar_usuario():
+    nome = input("Nome: ").strip()
+    email = input("Email: ").strip()
+    try:
+        usuario_id = crud.criar_usuario(nome, email)
+        print(f"Usuário criado com id {usuario_id}.")
+    except Error as e:
+        print(f"Erro ao criar usuário: {e}")
+
+
+def listar_usuarios():
+    usuarios = crud.listar_usuarios()
+    if not usuarios:
+        print("Nenhum usuário cadastrado.")
+        return
+    for u in usuarios:
+        print(f"[{u['id']}] {u['nome']} <{u['email']}>")
+
+
+def criar_tarefa():
+    usuario_id = input_int("ID do usuário: ")
+    if not crud.buscar_usuario(usuario_id):
+        print("Usuário não encontrado.")
+        return
+    titulo = input("Título: ").strip()
+    descricao = input("Descrição: ").strip()
+    try:
+        tarefa_id = crud.criar_tarefa(usuario_id, titulo, descricao)
+        print(f"Tarefa criada com id {tarefa_id}.")
+    except Error as e:
+        print(f"Erro ao criar tarefa: {e}")
+
+
+def listar_tarefas():
+    filtro = input("Filtrar por ID de usuário (Enter para ver todas): ").strip()
+    usuario_id = int(filtro) if filtro.isdigit() else None
+    tarefas = crud.listar_tarefas(usuario_id)
     if not tarefas:
-        print("  nenhuma tarefa encontrada")
+        print("Nenhuma tarefa encontrada.")
         return
     for t in tarefas:
-        _print_tarefa(t)
+        print(
+            f"[{t['id']}] {t['titulo']} - status: {t['status']} "
+            f"(usuário {t['usuario_id']})"
+        )
 
 
-def _pedir_id():
-    bruto = input("id da tarefa: ").strip()
-    if not bruto.isdigit():
-        print("id inválido, precisa ser um número.")
-        return None
-    return int(bruto)
-
-
-def acao_criar():
-    titulo = input("título: ").strip()
-    if not titulo:
-        print("título é obrigatório, operação cancelada.")
+def ver_tarefa():
+    tarefa_id = input_int("ID da tarefa: ")
+    tarefa = crud.buscar_tarefa(tarefa_id)
+    if not tarefa:
+        print("Tarefa não encontrada.")
         return
-    descricao = input("descrição (opcional): ").strip() or None
-    tarefa_id = criar_tarefa(titulo, descricao, USUARIO_ID)
-    print(f"tarefa criada com id {tarefa_id}.")
+    for chave, valor in tarefa.items():
+        print(f"{chave}: {valor}")
 
 
-def acao_listar():
-    _print_tarefas(listar_tarefas(USUARIO_ID))
-
-
-def acao_buscar():
-    tarefa_id = _pedir_id()
-    if tarefa_id is None:
+def atualizar_tarefa():
+    tarefa_id = input_int("ID da tarefa: ")
+    if not crud.buscar_tarefa(tarefa_id):
+        print("Tarefa não encontrada.")
         return
-    tarefa = buscar_tarefa_por_id(tarefa_id)
-    if tarefa is None:
-        print("tarefa não encontrada.")
-        return
-    _print_tarefa(tarefa)
+    titulo = input("Novo título (Enter para manter): ").strip()
+    descricao = input("Nova descrição (Enter para manter): ").strip()
 
+    campos = {}
+    if titulo:
+        campos["titulo"] = titulo
+    if descricao:
+        campos["descricao"] = descricao
 
-def acao_atualizar():
-    tarefa_id = _pedir_id()
-    if tarefa_id is None:
-        return
-    if buscar_tarefa_por_id(tarefa_id) is None:
-        print("tarefa não encontrada.")
+    if not campos:
+        print("Nada para atualizar.")
         return
 
-    print("deixe em branco pra manter o valor atual.")
-    titulo = input("novo título: ").strip() or None
-    descricao = input("nova descrição: ").strip() or None
-    status = input("novo status (pendente/em_andamento/concluida): ").strip() or None
-
-    if status is not None and status not in ("pendente", "em_andamento", "concluida"):
-        print("status inválido, operação cancelada.")
-        return
-
-    atualizar_tarefa(tarefa_id, titulo=titulo, descricao=descricao, status=status)
-    print("tarefa atualizada.")
+    crud.atualizar_tarefa(tarefa_id, **campos)
+    print("Tarefa atualizada.")
 
 
-def acao_concluir():
-    tarefa_id = _pedir_id()
-    if tarefa_id is None:
-        return
-    if concluir_tarefa(tarefa_id):
-        print("tarefa marcada como concluída.")
+def concluir_tarefa():
+    tarefa_id = input_int("ID da tarefa: ")
+    if crud.concluir_tarefa(tarefa_id):
+        print("Tarefa marcada como concluída.")
     else:
-        print("tarefa não encontrada.")
+        print("Tarefa não encontrada.")
 
 
-def acao_deletar():
-    tarefa_id = _pedir_id()
-    if tarefa_id is None:
-        return
-    confirmacao = input(f"tem certeza que quer deletar a tarefa {tarefa_id}? (s/N): ").strip().lower()
-    if confirmacao != "s":
-        print("operação cancelada.")
-        return
-    if deletar_tarefa(tarefa_id):
-        print("tarefa deletada.")
+def excluir_tarefa():
+    tarefa_id = input_int("ID da tarefa: ")
+    if crud.excluir_tarefa(tarefa_id):
+        print("Tarefa excluída.")
     else:
-        print("tarefa não encontrada.")
+        print("Tarefa não encontrada.")
 
 
 ACOES = {
-    "1": acao_criar,
-    "2": acao_listar,
-    "3": acao_buscar,
-    "4": acao_atualizar,
-    "5": acao_concluir,
-    "6": acao_deletar,
+    "1": criar_usuario,
+    "2": listar_usuarios,
+    "3": criar_tarefa,
+    "4": listar_tarefas,
+    "5": ver_tarefa,
+    "6": atualizar_tarefa,
+    "7": concluir_tarefa,
+    "8": excluir_tarefa,
 }
 
 
 def main():
-    inicializar_banco()
     while True:
-        print(MENU)
-        opcao = input("escolha uma opção: ").strip()
+        opcao = input(MENU).strip()
         if opcao == "0":
-            print("até mais!")
+            print("Até mais!")
             break
         acao = ACOES.get(opcao)
-        if acao is None:
-            print("opção inválida, tente de novo.")
-            continue
-        acao()
+        if acao:
+            acao()
+        else:
+            print("Opção inválida.")
 
 
 if __name__ == "__main__":

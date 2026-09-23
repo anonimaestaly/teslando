@@ -1,105 +1,49 @@
-# Gestão de Tarefas
+# Desafio — Modelagem de Banco de Dados + Gestão de Tarefas (MySQL)
 
-Esse é o meu projeto pro desafio de modelagem de banco de dados. A ideia era
-simples: montar um banco pra guardar tarefas de usuários, e depois construir
-uma forma de mexer nesses dados (criar, ver, editar e apagar tarefas).
+## Estrutura
 
-Decidi ir um pouco além do pedido e fiz duas formas de usar o sistema: um
-menu direto no terminal, e uma API de verdade, pra treinar as duas coisas.
+```
+desafio-db/
+├── diagrama/
+│   └── er-diagram.md      # Diagrama entidade-relacionamento (Mermaid)
+├── sql/
+│   └── schema.sql         # Criação do banco e tabelas em MySQL
+├── src/
+│   └── crud.py            # Script Python com o CRUD completo
+└── README.md
+```
 
-## O que tem em cada arquivo
+## Entidades
 
-- `modelagem.md` — como pensei o banco: as entidades, os atributos de cada
-  uma, e o diagrama mostrando como elas se relacionam.
-- `sql/schema.sql` — o script que cria as tabelas no banco.
-- `sql/tarefas.db` — o banco em si (arquivo SQLite). É gerado sozinho na
-  primeira vez que você roda qualquer um dos scripts abaixo.
-- `crud.py` — onde ficam as funções que realmente mexem no banco: criar,
-  listar, buscar, atualizar, concluir e deletar tarefa. Todo o resto do
-  projeto usa essas funções, não conversa com o banco diretamente.
-- `cli.py` — um menu no terminal pra usar o CRUD sem precisar escrever código.
-- `api.py` — a mesma coisa, mas como uma API REST feita com FastAPI, pra
-  quem quiser acessar via HTTP em vez de terminal.
-
-## Por que SQLite
-
-Escolhi SQLite porque o banco inteiro fica guardado num arquivo só, sem
-precisar instalar nem configurar um servidor separado. Pra um projeto de
-portfólio isso facilita muito — quem for testar meu código não precisa
-instalar MySQL ou PostgreSQL antes, é só rodar.
+- **usuario** (1) — (N) **tarefa**
 
 ## Como rodar
 
-Só precisa de Python (a parte do banco usa `sqlite3`, que já vem
-instalado por padrão).
+1. **Criar o banco:**
+   ```bash
+   mysql -u root -p < sql/schema.sql
+   ```
+   Isso cria o banco `gestao_tarefas`, as tabelas `usuario` e `tarefa`, e insere
+   alguns dados de exemplo.
 
-**Testar a lógica direto:**
-```bash
-cd desafio4
-python crud.py
-```
-Isso cria o banco (se ainda não existir) e roda um teste que cria, atualiza,
-conclui e apaga algumas tarefas de exemplo, imprimindo o resultado de cada
-passo no terminal.
+2. **Instalar a dependência do Python:**
+   ```bash
+   pip install mysql-connector-python
+   ```
 
-**Usar o menu interativo:**
-```bash
-cd desafio4
-python cli.py
-```
-Abre um menu numerado — escolhe a opção digitando o número e segue as
-instruções que aparecem na tela.
+3. **Ajustar a conexão** em `src/crud.py` (usuário/senha do seu MySQL local).
 
-**Subir a API:**
+4. **Rodar a demonstração do CRUD:**
+   ```bash
+   python src/crud.py
+   ```
+   Isso vai criar, listar, buscar, atualizar, concluir e deletar uma tarefa,
+   imprimindo cada etapa no terminal.
 
-Primeiro instala o que falta:
-```bash
-pip install fastapi uvicorn
-```
+## Boas práticas aplicadas
 
-Depois:
-```bash
-cd desafio4
-uvicorn api:app --reload
-```
-
-Com o servidor rodando, dá pra abrir `http://127.0.0.1:8000/docs` no
-navegador e testar cada rota por lá, sem precisar escrever nenhum código
-pra fazer as requisições.
-
-## As rotas da API
-
-| Rota                       | O que faz                                  |
-|-----------------------------|---------------------------------------------|
-| `POST /tarefas`              | Cria uma tarefa nova                        |
-| `GET /tarefas`               | Lista as tarefas (dá pra filtrar por usuário) |
-| `GET /tarefas/{id}`          | Busca uma tarefa específica                 |
-| `PUT /tarefas/{id}`          | Atualiza título, descrição ou status        |
-| `PATCH /tarefas/{id}/concluir` | Marca como concluída                      |
-| `DELETE /tarefas/{id}`       | Apaga a tarefa                              |
-
-## Decisões que tomei no código
-
-Separei o projeto assim de propósito: o `crud.py` é a única parte que sabe
-escrever SQL. Tanto o `cli.py` quanto o `api.py` só chamam as funções dele —
-nenhum dos dois monta uma query sozinho. Isso significa que, se um dia eu
-quiser trocar de SQLite pra outro banco, só preciso mexer no `crud.py`, o
-resto continua igual.
-
-Outras coisas que me preocupei em fazer certo:
-
-- Todas as consultas usam `?` no lugar dos valores (parâmetros), em vez de
-  montar a query colando texto — isso evita SQL Injection.
-- A conexão com o banco é aberta e fechada automaticamente (usando um
-  context manager), então não corro risco de esquecer uma conexão aberta ou
-  de deixar o banco num estado inconsistente se der algum erro no meio do
-  caminho.
-- O banco tem uma regra (`CHECK`) garantindo que uma tarefa só pode ter data
-  de conclusão se o status dela for "concluída" — assim, mesmo que algum bug
-  no código tente salvar algo errado, o próprio banco recusa.
-
-## O que ficaria pra uma próxima versão
-
-- Autenticação de verdade (hoje o `cli.py` assume um usuário fixo pra
-  simplificar; o banco já tem a tabela de usuário pronta pra isso).
-- Rotas na API pra criar e gerenciar usuários, não só tarefas.
+- Queries **parametrizadas** (`%s`), sem concatenação de string — evita SQL Injection.
+- **Context manager** (`get_connection`) garante que a conexão sempre é fechada.
+- **Chave estrangeira** com `ON DELETE CASCADE`: ao apagar um usuário, suas tarefas somem junto.
+- `status` como **ENUM** em vez de texto livre, evitando valores inconsistentes.
+- Separação clara entre criação do schema (SQL) e lógica de acesso a dados (Python).

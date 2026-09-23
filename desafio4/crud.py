@@ -1,8 +1,3 @@
-"""CRUD de tarefas usando MySQL.
-
-Migrei de SQLite pra MySQL — a lógica de negócio continua a mesma,
-só troquei a forma como a gente fala com o banco.
-"""
 
 import mysql.connector
 from contextlib import contextmanager
@@ -126,4 +121,5 @@ def atualizar_tarefa(tarefa_id, titulo=None, descricao=None, status=None):
     with conectar() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE tarefa
+            "update tarefa"
+        )

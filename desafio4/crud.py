@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_PATH = Path(__file__).parent / "sql" / "schema.sql"
+SCHEMA_PATH = Path(__file__).parent / "mysql" / "schema.mysql"
 
 # troque pelos dados reais do seu MySQL antes de rodar
 DB_CONFIG = {

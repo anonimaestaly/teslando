@@ -37,6 +37,60 @@ def get_connection():
 
 
 # ---------------------------------------------------------------
+# USUARIO
+# ---------------------------------------------------------------
+def criar_usuario(nome: str, email: str, senha: str = "") -> int:
+    """Cria um novo usuário e retorna o id gerado."""
+    sql = """
+        INSERT INTO usuario (nome, email, senha)
+        VALUES (%s, %s, %s)
+    """
+    with get_connection() as conn:
+        cursor: MySQLCursor = conn.cursor()
+        cursor.execute(sql, (nome, email, senha))
+        conn.commit()
+        return cursor.lastrowid
+
+
+def listar_usuarios() -> list[dict]:
+    """Lista todos os usuários."""
+    sql = "SELECT id, nome, email, data_cadastro FROM usuario ORDER BY id"
+    with get_connection() as conn:
+        cursor: MySQLCursor = conn.cursor(dictionary=True)
+        cursor.execute(sql)
+        return cursor.fetchall()
+
+
+def buscar_usuario_por_id(usuario_id: int) -> dict | None:
+    """Busca um único usuário pelo id. Retorna None se não existir."""
+    sql = "SELECT id, nome, email, data_cadastro FROM usuario WHERE id = %s"
+    with get_connection() as conn:
+        cursor: MySQLCursor = conn.cursor(dictionary=True)
+        cursor.execute(sql, (usuario_id,))
+        return cursor.fetchone()
+
+
+def atualizar_usuario(usuario_id: int, nome: str, email: str) -> bool:
+    """Atualiza nome e email de um usuário. Retorna True se alterou algo."""
+    sql = "UPDATE usuario SET nome = %s, email = %s WHERE id = %s"
+    with get_connection() as conn:
+        cursor: MySQLCursor = conn.cursor()
+        cursor.execute(sql, (nome, email, usuario_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def deletar_usuario(usuario_id: int) -> bool:
+    """Remove um usuário pelo id (e suas tarefas, via ON DELETE CASCADE)."""
+    sql = "DELETE FROM usuario WHERE id = %s"
+    with get_connection() as conn:
+        cursor: MySQLCursor = conn.cursor()
+        cursor.execute(sql, (usuario_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ---------------------------------------------------------------
 # CREATE
 # ---------------------------------------------------------------
 def criar_tarefa(titulo: str, descricao: str, usuario_id: int) -> int:

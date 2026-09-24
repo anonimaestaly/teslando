@@ -7,6 +7,8 @@ from tarefas import (
 )
 
 
+
+
 def menu():
     while True:
         print("\n1 - Nova tarefa")
@@ -16,7 +18,9 @@ def menu():
         print("5 - Excluir tarefa")
         print("0 - Sair")
 
+
         opcao = input("> ").strip()
+
 
         if opcao == "1":
             titulo = input("Título: ")
@@ -24,8 +28,10 @@ def menu():
             usuario_id = input("ID do usuário: ")
             criar_tarefa(titulo, descricao, usuario_id)
 
+
         elif opcao == "2":
             listar_tarefas()
+
 
         elif opcao == "3":
             tarefa_id = input("ID da tarefa: ")
@@ -33,20 +39,27 @@ def menu():
             descricao = input("Nova descrição (Enter pra manter a mesma): ")
             atualizar_tarefa(tarefa_id, titulo or None, descricao or None)
 
+
         elif opcao == "4":
             tarefa_id = input("ID da tarefa: ")
             concluir_tarefa(tarefa_id)
+
 
         elif opcao == "5":
             tarefa_id = input("ID da tarefa: ")
             deletar_tarefa(tarefa_id)
 
+
         elif opcao == "0":
             break
+
 
         else:
             print("Opção inválida.")
 
 
+
+
 if __name__ == "__main__":
     menu()
+

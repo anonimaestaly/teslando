@@ -1,10 +1,14 @@
 import os
 
+
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 
+
 load_dotenv()
+
+
 
 
 def conectar():
@@ -19,3 +23,4 @@ def conectar():
     except Error as e:
         print("Não consegui conectar no banco:", e)
         return None
+

@@ -30,7 +30,7 @@ def listar_tarefas():
     tarefas = cursor.fetchall()
 
     if not tarefas:
-        print("Ainda não tem nenhuma tarefa cadastrada.")
+        print("Ainda não tem nenhuma tarefa cadrastada.")
 
     for t in tarefas:
         status = "concluída" if t["data_conclusao"] else "pendente"

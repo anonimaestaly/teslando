@@ -1,205 +1,179 @@
-"""
-CRUD de Tarefas — MySQL
-=======================
-
-Requisitos:
-    pip install mysql-connector-python
-
-Antes de rodar, execute o script sql/schema.sql no seu servidor MySQL
-para criar o banco `gestao_tarefas` e as tabelas `usuario` e `tarefa`.
-"""
-
-from __future__ import annotations
-
-from contextlib import contextmanager
-from datetime import datetime
-
 import mysql.connector
-from mysql.connector import MySQLConnection
-from mysql.connector.cursor import MySQLCursor
+from mysql.connector import Error
+from datetime import date
 
-DB_CONFIG = {
-    "host": "localhost",
+# ajuste esses dados de acordo com a sua instalação do mysql
+config = {
+    "host": "127.0.0.1",
+    "port": 3306,
     "user": "root",
-    "password": "sua_senha_aqui",
-    "database": "gestao_tarefas",
+    "password": "SUA_SENHA_AQUI",
+    "database": "meu_banco",
 }
 
 
-@contextmanager
-def get_connection():
-    """Context manager que abre e fecha a conexão automaticamente."""
-    conn: MySQLConnection = mysql.connector.connect(**DB_CONFIG)
+def conectar():
     try:
-        yield conn
-    finally:
-        conn.close()
+        return mysql.connector.connect(**config)
+    except Error as e:
+        print("Não consegui conectar no banco:", e)
+        return None
 
 
-# ---------------------------------------------------------------
-# USUARIO
-# ---------------------------------------------------------------
-def criar_usuario(nome: str, email: str, senha: str = "") -> int:
-    """Cria um novo usuário e retorna o id gerado."""
-    sql = """
-        INSERT INTO usuario (nome, email, senha)
-        VALUES (%s, %s, %s)
-    """
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (nome, email, senha))
-        conn.commit()
-        return cursor.lastrowid
+def criar_tarefa(titulo, descricao, usuario_id):
+    conexao = conectar()
+    if not conexao:
+        return
 
-
-def listar_usuarios() -> list[dict]:
-    """Lista todos os usuários."""
-    sql = "SELECT id, nome, email, data_cadastro FROM usuario ORDER BY id"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor(dictionary=True)
-        cursor.execute(sql)
-        return cursor.fetchall()
-
-
-def buscar_usuario_por_id(usuario_id: int) -> dict | None:
-    """Busca um único usuário pelo id. Retorna None se não existir."""
-    sql = "SELECT id, nome, email, data_cadastro FROM usuario WHERE id = %s"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor(dictionary=True)
-        cursor.execute(sql, (usuario_id,))
-        return cursor.fetchone()
-
-
-def atualizar_usuario(usuario_id: int, nome: str, email: str) -> bool:
-    """Atualiza nome e email de um usuário. Retorna True se alterou algo."""
-    sql = "UPDATE usuario SET nome = %s, email = %s WHERE id = %s"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (nome, email, usuario_id))
-        conn.commit()
-        return cursor.rowcount > 0
-
-
-def deletar_usuario(usuario_id: int) -> bool:
-    """Remove um usuário pelo id (e suas tarefas, via ON DELETE CASCADE)."""
-    sql = "DELETE FROM usuario WHERE id = %s"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (usuario_id,))
-        conn.commit()
-        return cursor.rowcount > 0
-
-
-# ---------------------------------------------------------------
-# CREATE
-# ---------------------------------------------------------------
-def criar_tarefa(titulo: str, descricao: str, usuario_id: int) -> int:
-    """Cria uma nova tarefa e retorna o id gerado."""
-    sql = """
-        INSERT INTO tarefa (titulo, descricao, usuario_id)
-        VALUES (%s, %s, %s)
-    """
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (titulo, descricao, usuario_id))
-        conn.commit()
-        return cursor.lastrowid
-
-
-# ---------------------------------------------------------------
-# READ
-# ---------------------------------------------------------------
-def listar_tarefas(usuario_id: int | None = None) -> list[dict]:
-    """Lista todas as tarefas, ou apenas as de um usuário se informado."""
-    sql = "SELECT * FROM tarefa"
-    params: tuple = ()
-    if usuario_id is not None:
-        sql += " WHERE usuario_id = %s"
-        params = (usuario_id,)
-    sql += " ORDER BY data_criacao DESC"
-
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor(dictionary=True)
-        cursor.execute(sql, params)
-        return cursor.fetchall()
-
-
-def buscar_tarefa_por_id(tarefa_id: int) -> dict | None:
-    """Busca uma única tarefa pelo id. Retorna None se não existir."""
-    sql = "SELECT * FROM tarefa WHERE id = %s"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor(dictionary=True)
-        cursor.execute(sql, (tarefa_id,))
-        return cursor.fetchone()
-
-
-# ---------------------------------------------------------------
-# UPDATE
-# ---------------------------------------------------------------
-def atualizar_tarefa(tarefa_id: int, titulo: str, descricao: str) -> bool:
-    """Atualiza título e descrição de uma tarefa. Retorna True se alterou algo."""
-    sql = """
-        UPDATE tarefa
-        SET titulo = %s, descricao = %s
-        WHERE id = %s
-    """
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (titulo, descricao, tarefa_id))
-        conn.commit()
-        return cursor.rowcount > 0
-
-
-def concluir_tarefa(tarefa_id: int) -> bool:
-    """Marca a tarefa como concluída e registra a data de conclusão."""
-    sql = """
-        UPDATE tarefa
-        SET status = 'concluida', data_conclusao = %s
-        WHERE id = %s
-    """
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (datetime.now(), tarefa_id))
-        conn.commit()
-        return cursor.rowcount > 0
-
-
-# ---------------------------------------------------------------
-# DELETE
-# ---------------------------------------------------------------
-def deletar_tarefa(tarefa_id: int) -> bool:
-    """Remove uma tarefa pelo id. Retorna True se algo foi removido."""
-    sql = "DELETE FROM tarefa WHERE id = %s"
-    with get_connection() as conn:
-        cursor: MySQLCursor = conn.cursor()
-        cursor.execute(sql, (tarefa_id,))
-        conn.commit()
-        return cursor.rowcount > 0
-
-
-# ---------------------------------------------------------------
-# Demonstração
-# ---------------------------------------------------------------
-if __name__ == "__main__":
-    novo_id = criar_tarefa(
-        titulo="Praticar consultas SQL",
-        descricao="Resolver 10 exercícios de JOIN",
-        usuario_id=1,
+    cursor = conexao.cursor()
+    cursor.execute(
+        "INSERT INTO tarefa (titulo, descricao, data_criacao, usuario_id) VALUES (%s, %s, %s, %s)",
+        (titulo, descricao, date.today(), usuario_id),
     )
-    print(f"Tarefa criada com id {novo_id}")
+    conexao.commit()
+    print("Tarefa criada, id:", cursor.lastrowid)
 
-    print("\nTarefas do usuário 1:")
-    for tarefa in listar_tarefas(usuario_id=1):
-        print(tarefa)
+    cursor.close()
+    conexao.close()
 
-    print("\nBuscando tarefa recém-criada:")
-    print(buscar_tarefa_por_id(novo_id))
 
-    atualizar_tarefa(novo_id, "Praticar SQL avançado", "Focar em subqueries e índices")
-    concluir_tarefa(novo_id)
+def listar_tarefas():
+    conexao = conectar()
+    if not conexao:
+        return
 
-    print("\nTarefa após update e conclusão:")
-    print(buscar_tarefa_por_id(novo_id))
+    cursor = conexao.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM tarefa ORDER BY id")
+    tarefas = cursor.fetchall()
 
-    deletar_tarefa(novo_id)
-    print("\nTarefa deletada.")
+    if not tarefas:
+        print("Ainda não tem nenhuma tarefa cadastrada.")
+
+    for t in tarefas:
+        status = "concluída" if t["data_conclusao"] else "pendente"
+        print(f"#{t['id']} - {t['titulo']} ({status})")
+        if t["descricao"]:
+            print("   ", t["descricao"])
+
+    cursor.close()
+    conexao.close()
+
+
+def buscar_tarefa(tarefa_id):
+    conexao = conectar()
+    if not conexao:
+        return None
+
+    cursor = conexao.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM tarefa WHERE id = %s", (tarefa_id,))
+    tarefa = cursor.fetchone()
+
+    cursor.close()
+    conexao.close()
+    return tarefa
+
+
+def atualizar_tarefa(tarefa_id, titulo=None, descricao=None):
+    tarefa = buscar_tarefa(tarefa_id)
+    if not tarefa:
+        print("Não achei essa tarefa.")
+        return
+
+    novo_titulo = titulo or tarefa["titulo"]
+    nova_descricao = descricao or tarefa["descricao"]
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+    cursor.execute(
+        "UPDATE tarefa SET titulo = %s, descricao = %s WHERE id = %s",
+        (novo_titulo, nova_descricao, tarefa_id),
+    )
+    conexao.commit()
+    print("Tarefa atualizada.")
+
+    cursor.close()
+    conexao.close()
+
+
+def concluir_tarefa(tarefa_id):
+    conexao = conectar()
+    if not conexao:
+        return
+
+    cursor = conexao.cursor()
+    cursor.execute(
+        "UPDATE tarefa SET data_conclusao = %s WHERE id = %s",
+        (date.today(), tarefa_id),
+    )
+    conexao.commit()
+
+    if cursor.rowcount:
+        print("Tarefa marcada como concluída.")
+    else:
+        print("Não achei essa tarefa.")
+
+    cursor.close()
+    conexao.close()
+
+
+def deletar_tarefa(tarefa_id):
+    conexao = conectar()
+    if not conexao:
+        return
+
+    cursor = conexao.cursor()
+    cursor.execute("DELETE FROM tarefa WHERE id = %s", (tarefa_id,))
+    conexao.commit()
+
+    if cursor.rowcount:
+        print("Tarefa excluída.")
+    else:
+        print("Não achei essa tarefa.")
+
+    cursor.close()
+    conexao.close()
+
+
+def menu():
+    while True:
+        print("\n1 - Nova tarefa")
+        print("2 - Ver tarefas")
+        print("3 - Editar tarefa")
+        print("4 - Concluir tarefa")
+        print("5 - Excluir tarefa")
+        print("0 - Sair")
+
+        opcao = input("> ").strip()
+
+        if opcao == "1":
+            titulo = input("Título: ")
+            descricao = input("Descrição: ")
+            usuario_id = input("ID do usuário: ")
+            criar_tarefa(titulo, descricao, usuario_id)
+
+        elif opcao == "2":
+            listar_tarefas()
+
+        elif opcao == "3":
+            tarefa_id = input("ID da tarefa: ")
+            titulo = input("Novo título (Enter pra manter o mesmo): ")
+            descricao = input("Nova descrição (Enter pra manter a mesma): ")
+            atualizar_tarefa(tarefa_id, titulo or None, descricao or None)
+
+        elif opcao == "4":
+            tarefa_id = input("ID da tarefa: ")
+            concluir_tarefa(tarefa_id)
+
+        elif opcao == "5":
+            tarefa_id = input("ID da tarefa: ")
+            deletar_tarefa(tarefa_id)
+
+        elif opcao == "0":
+            break
+
+        else:
+            print("Opção inválida.")
+
+
+if __name__ == "__main__":
+    menu()

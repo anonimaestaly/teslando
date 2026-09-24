@@ -35,3 +35,17 @@ def listar_usuarios():
 
     cursor.close()
     conexao.close()
+
+
+def usuario_existe(usuario_id):
+    conexao = conectar()
+    if not conexao:
+        return False
+
+    cursor = conexao.cursor()
+    cursor.execute("SELECT id FROM usuario WHERE id = %s", (usuario_id,))
+    existe = cursor.fetchone() is not None
+
+    cursor.close()
+    conexao.close()
+    return existe

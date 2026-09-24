@@ -5,61 +5,49 @@ from tarefas import (
     concluir_tarefa,
     deletar_tarefa,
 )
+from usuarios import criar_usuario, listar_usuarios
 
 
+def mostrar_menu():
+    print("\n--- TAREFAS ---")
+    print("1 - Nova tarefa")
+    print("2 - Ver tarefas")
+    print("3 - Editar tarefa")
+    print("4 - Concluir tarefa")
+    print("5 - Excluir tarefa")
+    print("\n--- USUÁRIOS ---")
+    print("6 - Novo usuário")
+    print("7 - Ver usuários")
+    print("\n0 - Sair")
 
 
-def menu():
-    while True:
-        print("\n1 - Nova tarefa")
-        print("2 - Ver tarefas")
-        print("3 - Editar tarefa")
-        print("4 - Concluir tarefa")
-        print("5 - Excluir tarefa")
-        print("0 - Sair")
+def pedir_numero(mensagem):
+    """Pede um número e repete até a pessoa digitar algo válido."""
+    valor = input(mensagem).strip()
+    while not valor.isdigit():
+        print("Digite apenas números.")
+        valor = input(mensagem).strip()
+    return valor
 
 
-        opcao = input("> ").strip()
+def opcao_nova_tarefa():
+    titulo = input("Título: ")
+    descricao = input("Descrição: ")
+    usuario_id = pedir_numero("ID do usuário: ")
+    criar_tarefa(titulo, descricao, usuario_id)
 
 
-        if opcao == "1":
-            titulo = input("Título: ")
-            descricao = input("Descrição: ")
-            usuario_id = input("ID do usuário: ")
-            criar_tarefa(titulo, descricao, usuario_id)
+def opcao_editar_tarefa():
+    tarefa_id = pedir_numero("ID da tarefa: ")
+    titulo = input("Novo título (Enter pra manter o mesmo): ")
+    descricao = input("Nova descrição (Enter pra manter a mesma): ")
+    atualizar_tarefa(tarefa_id, titulo or None, descricao or None)
 
 
-        elif opcao == "2":
-            listar_tarefas()
+def opcao_concluir_tarefa():
+    tarefa_id = pedir_numero("ID da tarefa: ")
+    concluir_tarefa(tarefa_id)
 
 
-        elif opcao == "3":
-            tarefa_id = input("ID da tarefa: ")
-            titulo = input("Novo título (Enter pra manter o mesmo): ")
-            descricao = input("Nova descrição (Enter pra manter a mesma): ")
-            atualizar_tarefa(tarefa_id, titulo or None, descricao or None)
-
-
-        elif opcao == "4":
-            tarefa_id = input("ID da tarefa: ")
-            concluir_tarefa(tarefa_id)
-
-
-        elif opcao == "5":
-            tarefa_id = input("ID da tarefa: ")
-            deletar_tarefa(tarefa_id)
-
-
-        elif opcao == "0":
-            break
-
-
-        else:
-            print("Opção inválida.")
-
-
-
-
-if __name__ == "__main__":
-    menu()
-
+def opcao_excluir_tarefa():
+    tarefa_id = pedir_numero("ID da tarefa: ")

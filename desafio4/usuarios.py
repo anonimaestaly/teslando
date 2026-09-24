@@ -1,51 +1,56 @@
-from db import conectar
+"""Funções para gerenciar usuários no banco de dados."""
+
+import re
+
+from mysql.connector.errors import IntegrityError
+
+from db import obter_cursor
+
+
+def email_valido(email):
+    """Verifica se o email tem um formato básico válido (algo@algo.algo)."""
+    padrao = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    return re.match(padrao, email) is not None
 
 
 def criar_usuario(nome, email):
-    conexao = conectar()
-    if not conexao:
+    """Cria um novo usuário. Recusa email inválido ou duplicado."""
+    if not email_valido(email):
+        print("Email inválido. Usuário não foi criado.")
         return
 
-    cursor = conexao.cursor()
-    cursor.execute(
-        "INSERT INTO usuario (nome, email) VALUES (%s, %s)",
-        (nome, email),
-    )
-    conexao.commit()
-    print("Usuário criado, id:", cursor.lastrowid)
-
-    cursor.close()
-    conexao.close()
+    try:
+        with obter_cursor() as cursor:
+            if cursor is None:
+                return
+            cursor.execute(
+                "INSERT INTO usuario (nome, email) VALUES (%s, %s)",
+                (nome, email),
+            )
+            print("Usuário criado, id:", cursor.lastrowid)
+    except IntegrityError:
+        print("Já existe um usuário com esse email.")
 
 
 def listar_usuarios():
-    conexao = conectar()
-    if not conexao:
-        return
+    """Mostra todos os usuários cadastrados."""
+    with obter_cursor(dictionary=True) as cursor:
+        if cursor is None:
+            return
+        cursor.execute("SELECT * FROM usuario ORDER BY id")
+        usuarios = cursor.fetchall()
 
-    cursor = conexao.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM usuario ORDER BY id")
-    usuarios = cursor.fetchall()
+        if not usuarios:
+            print("Ainda não tem nenhum usuário cadastrado.")
 
-    if not usuarios:
-        print("Ainda não tem nenhum usuário cadastrado.")
-
-    for u in usuarios:
-        print(f"#{u['id']} - {u['nome']} ({u['email']})")
-
-    cursor.close()
-    conexao.close()
+        for u in usuarios:
+            print(f"#{u['id']} - {u['nome']} ({u['email']})")
 
 
 def usuario_existe(usuario_id):
-    conexao = conectar()
-    if not conexao:
-        return False
-
-    cursor = conexao.cursor()
-    cursor.execute("SELECT id FROM usuario WHERE id = %s", (usuario_id,))
-    existe = cursor.fetchone() is not None
-
-    cursor.close()
-    conexao.close()
-    return existe
+    """Retorna True se existir um usuário com esse ID."""
+    with obter_cursor() as cursor:
+        if cursor is None:
+            return False
+        cursor.execute("SELECT id FROM usuario WHERE id = %s", (usuario_id,))
+        return cursor.fetchone() is not None

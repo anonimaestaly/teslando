@@ -1,14 +1,11 @@
 import os
-
+from contextlib import contextmanager
 
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 
-
 load_dotenv()
-
-
 
 
 def conectar():
@@ -24,3 +21,26 @@ def conectar():
         print("Não consegui conectar no banco:", e)
         return None
 
+
+@contextmanager
+def obter_cursor(dictionary=False):
+    """
+    Abre conexão + cursor, garante commit no final e fecha tudo sozinho.
+    Uso:
+        with obter_cursor() as cursor:
+            if cursor is None:
+                return
+            cursor.execute(...)
+    """
+    conexao = conectar()
+    if not conexao:
+        yield None
+        return
+
+    cursor = conexao.cursor(dictionary=dictionary)
+    try:
+        yield cursor
+        conexao.commit()
+    finally:
+        cursor.close()
+        conexao.close()

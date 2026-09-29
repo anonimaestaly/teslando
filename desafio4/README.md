@@ -62,13 +62,13 @@ Duas tabelas, uma tarefa pertence a um usuário:
 ```sql
 CREATE TABLE usuario (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE
 );
 
 CREATE TABLE tarefa (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    titulo VARCHAR(100) NOT NULL,
+    titulo VARCHAR(150) NOT NULL,
     descricao TEXT,
     data_criacao DATE NOT NULL,
     data_conclusao DATE,

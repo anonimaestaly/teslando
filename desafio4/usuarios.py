@@ -24,7 +24,7 @@ def criar_usuario(nome, email):
             if cursor is None:
                 return
             cursor.execute(
-                "INSERT INTO usuario (nome, email) VALUES (%s, %s)",
+                "INSERT INTO usuarios (nome, email) VALUES (%s, %s)",
                 (nome, email),
             )
             print("Usuário criado, id:", cursor.lastrowid)
@@ -37,7 +37,7 @@ def listar_usuarios():
     with obter_cursor(dictionary=True) as cursor:
         if cursor is None:
             return
-        cursor.execute("SELECT * FROM usuario ORDER BY id")
+        cursor.execute("SELECT * FROM usuarios ORDER BY id")
         usuarios = cursor.fetchall()
 
         if not usuarios:
@@ -52,5 +52,5 @@ def usuario_existe(usuario_id):
     with obter_cursor() as cursor:
         if cursor is None:
             return False
-        cursor.execute("SELECT id FROM usuario WHERE id = %s", (usuario_id,))
+        cursor.execute("SELECT id FROM usuarios WHERE id = %s", (usuario_id,))
         return cursor.fetchone() is not None

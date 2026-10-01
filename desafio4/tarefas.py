@@ -35,7 +35,7 @@ def criar_tarefa(titulo, descricao, usuario_id, prioridade="media", prazo=None):
 
     with _cursor() as cursor:
         cursor.execute(
-            "INSERT INTO tarefa (titulo, descricao, data_criacao, usuario_id, prioridade, prazo) "
+            "INSERT INTO tarefas (titulo, descricao, data_criacao, usuario_id, prioridade, prazo) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
             (titulo.strip(), descricao, date.today(), usuario_id, prioridade, prazo),
         )
@@ -58,7 +58,7 @@ def imprimir_tarefas(tarefas):
 def listar_tarefas():
     """Retorna todas as tarefas cadastradas."""
     with _cursor(dictionary=True) as cursor:
-        cursor.execute("SELECT * FROM tarefa ORDER BY id")
+        cursor.execute("SELECT * FROM tarefas ORDER BY id")
         return cursor.fetchall()
 
 
@@ -66,7 +66,7 @@ def listar_tarefas_por_usuario(usuario_id):
     """Retorna só as tarefas de um usuário específico."""
     with _cursor(dictionary=True) as cursor:
         cursor.execute(
-            "SELECT * FROM tarefa WHERE usuario_id = %s ORDER BY id", (usuario_id,)
+            "SELECT * FROM tarefas WHERE usuario_id = %s ORDER BY id", (usuario_id,)
         )
         return cursor.fetchall()
 
@@ -74,7 +74,7 @@ def listar_tarefas_por_usuario(usuario_id):
 def buscar_tarefa(tarefa_id):
     """Retorna os dados de uma tarefa pelo ID, ou None se não existir."""
     with _cursor(dictionary=True) as cursor:
-        cursor.execute("SELECT * FROM tarefa WHERE id = %s", (tarefa_id,))
+        cursor.execute("SELECT * FROM tarefas WHERE id = %s", (tarefa_id,))
         return cursor.fetchone()
 
 
@@ -106,7 +106,7 @@ def atualizar_tarefa(
 
     with _cursor() as cursor:
         cursor.execute(
-            "UPDATE tarefa SET titulo = %s, descricao = %s, prioridade = %s, prazo = %s "
+            "UPDATE tarefas SET titulo = %s, descricao = %s, prioridade = %s, prazo = %s "
             "WHERE id = %s",
             (novo_titulo, nova_descricao, nova_prioridade, novo_prazo, tarefa_id),
         )
@@ -120,7 +120,7 @@ def concluir_tarefa(tarefa_id):
     """
     with _cursor() as cursor:
         cursor.execute(
-            "UPDATE tarefa SET data_conclusao = %s "
+            "UPDATE tarefas SET data_conclusao = %s "
             "WHERE id = %s AND data_conclusao IS NULL",
             (date.today(), tarefa_id),
         )
@@ -134,5 +134,5 @@ def concluir_tarefa(tarefa_id):
 def deletar_tarefa(tarefa_id):
     """Remove uma tarefa permanentemente. Retorna True se ela existia."""
     with _cursor() as cursor:
-        cursor.execute("DELETE FROM tarefa WHERE id = %s", (tarefa_id,))
+        cursor.execute("DELETE FROM tarefas WHERE id = %s", (tarefa_id,))
         return cursor.rowcount > 0

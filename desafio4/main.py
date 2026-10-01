@@ -1,7 +1,6 @@
 """Ponto de entrada do sistema: menu interativo de tarefas e usuários."""
 
 from datetime import datetime
-
 from mysql.connector import Error
 
 from tarefas import (
